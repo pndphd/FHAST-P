@@ -1,0 +1,5 @@
+type = constant
+temperature = 12
+flow = 200
+start date = 10/03/1982
+end date = 10/03/1983

@@ -1,0 +1,13 @@
+type = link
+flow distribution = normal
+flow mean = 400
+flow SD = 200
+flow autocorrelation = 0.9
+flow change = 4
+flow min = 100
+temperature SD = 1
+temperature correlation = 1
+temperature slope = -0.005
+temperature intercept = 20
+start date = 10/03/1982
+end date = 10/01/1983

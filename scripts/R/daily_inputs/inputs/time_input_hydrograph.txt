@@ -1,0 +1,4 @@
+type = hydrograph
+file = "daily_data.csv"
+start date = 4/29/2020
+end date = 6/20/2020
