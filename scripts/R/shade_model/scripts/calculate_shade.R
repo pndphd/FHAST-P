@@ -176,4 +176,4 @@ location = shade_shape %>%
 # save the file
 saveRDS(result, file = "./temporary/R/shade_file.rds")
 
-toc()
+

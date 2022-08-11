@@ -19,7 +19,7 @@ get_type_letter = function(type = NULL){
 load_rasters = function(type = NULL,
                         folder = NULL,
                         flows = NULL){
-browser()
+
   type_letter = get_type_letter(type)
 
   stack = stack(map(flows,~raster(paste0(folder, "/", type_letter, .x, ".tif"))))

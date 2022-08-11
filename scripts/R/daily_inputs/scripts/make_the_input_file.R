@@ -218,7 +218,7 @@ time_series_plot = ggplot(data = output_data, aes(x = mdy(date), y = flow_cms)) 
    labs(x = "Date") 
 
 # Print in outside window
-windows(width = 10, height = 5)
+X11(width = 10, height = 5)
 print(time_series_plot)
 
 # Make the function for histogram plots
@@ -250,7 +250,7 @@ flow_hist_plot = make_hist_plot(output_data,
                                 "Flow (cms)")
 
 # Print in outside window using patchwork
-windows(width = 10, height = 10)
+X11(width = 10, height = 10)
 print(flow_hist_plot / temp_hist_plot)
 
 
