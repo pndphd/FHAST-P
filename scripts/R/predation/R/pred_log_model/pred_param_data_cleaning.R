@@ -114,10 +114,7 @@ combined_data <-
       shade == "C" ~ "P",
       TRUE ~ shade
     ),
-    shade = dplyr::case_when(
-      shade == "P" ~ 1,
-      TRUE ~ 0
-    )
+    shade = dplyr::if_else(shade == "P", 1, 0)
   )
 
 # add mean depth and velocity
@@ -149,10 +146,7 @@ combined_data <-
       substrate == "M/V" ~ "M",
       TRUE ~ substrate
     ),
-    substrate = dplyr::case_when(
-      substrate == "R" ~ 1,
-      TRUE ~ 0
-    )
+    substrate = dplyr::if_else(substrate == "R", 1, 0)
   ) %>%
   dplyr::select(-c(substrate5:substrate15))
 
@@ -162,7 +156,7 @@ combined_data <- combined_data %>%
   dplyr::mutate(
     dplyr::across(
       bass:sasq,
-      .fns = ~ ifelse(.x > 0, "present", "absent")
+      .fns = ~ dplyr::if_else(.x > 0, "present", "absent")
     )
   )
 
@@ -184,15 +178,16 @@ combined_data <- combined_data %>%
 
 combined_data <- combined_data %>%
   dplyr::rename(
-    vegetation = emergvegdensity, # veg_cover
-    cover = emergwmdensity, #wood_cover
+    veg = emergvegdensity, # veg_cover
+    wood = emergwmdensity, # wood_cover
     depth_ft = mean_depth,
     velocity_fps = mean_vel
   )
 
 # convert to metric
-combined_data <- combined_data %>% 
-  mutate(across(depth_ft:velocity_fps, fns = ~ .x /3.28)) %>% 
-  rename(velocity = velocity_fps,
-         depth = depth_ft)
-
+combined_data <- combined_data %>%
+  mutate(across(depth_ft:velocity_fps, fns = ~ .x / 3.28)) %>%
+  rename(
+    velocity = velocity_fps,
+    depth = depth_ft
+  )

@@ -6,14 +6,14 @@ library(fitdistrplus) # fitting distributions to data
 options(readr.show_col_types = FALSE) # turns off notifications when reading csv files
 
 # 1. functions ------------------------------------------------------------
-
-source(file = here::here("R", "pred_length_data", "pred_length_funcs.R"))
+proj_dir <- here::here("scripts", "R", "predation")
+source(file = here::here(proj_dir, "R", "pred_length_data", "pred_length_funcs.R"))
 
 ##### stuff for plotting
 # plots and saves goodness-of-fit plots for a fitted distribution
 plot_dist <- function(dist, data, species) {
   tiff(
-    filename = here::here("output", "figs", "pred_length_data", paste0(species, "_", dist, "_distribution.tiff")),
+    filename = here::here(proj_dir, "output", "figs", "pred_length_data", paste0(species, "_", dist, "_distribution.tiff")),
     width = 9,
     height = 7,
     units = "in",
@@ -51,7 +51,7 @@ get_fit_stats <- function(fit_distribution) {
 
 # 2. load data and params -------------------------------------------------
 
-upper_sac_folder <- here::here("data", "fishbio", "pred_length")
+upper_sac_folder <- here::here(proj_dir, "data", "fishbio", "pred_length")
 
 params <- list(
   csvs = here::here(upper_sac_folder, list.files(upper_sac_folder, pattern = "*.csv")),
@@ -83,7 +83,7 @@ data <- get_data(params) %>% # put all data into one dataframe
 grouped_data <- data %>%
   dplyr::group_nest(species)
 
-walk2(
+purrr::walk2(
   .x = grouped_data$data,
   .y = grouped_data$species,
   .f = plot_all_dists,
@@ -97,7 +97,7 @@ data %>%
   dplyr::mutate(
     fit = purrr::map(data, ~ make_all_dists(data = .x, dist = dist_list))
   ) %>%
-  unnest(fit) %>%
-  mutate(stats = map(fit, get_fit_stats)) %>%
-  select(stats) %>%
-  map(., print)
+  tidyr::unnest(fit) %>%
+  dplyr::mutate(stats = map(fit, get_fit_stats)) %>%
+  dplyr::select(stats) %>%
+  purrr::map(., print)

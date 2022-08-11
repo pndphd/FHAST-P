@@ -26,6 +26,7 @@ library(viridis)
 # a faster way to do raster sampling with shape files
 library(exactextractr)
 library(furrr)
+library(tictoc)
 
 # Make sure the area function is raster::area 
 area = raster::area
@@ -62,6 +63,7 @@ plan(multisession, workers = as.numeric(input_data["cores used",]))
 
 ##### Main Part #####
 # Put all the rasters in a stack
+
 raster_stack_d = load_rasters(type = "depth",
                               folder = raster_folder,
                               flows = flows)

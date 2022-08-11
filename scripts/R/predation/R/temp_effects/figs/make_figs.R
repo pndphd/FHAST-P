@@ -8,8 +8,9 @@ options(readr.show_col_types = FALSE) # turns off notifications when reading csv
 
 
 # 1. set file path --------------------------------------------------------
+proj_dir <- here::here("scripts", "R", "predation")
 
-data <- here::here("data", "lit_search", "temp_data.csv")
+data <-  here::here(proj_dir, "data", "lit_search", "temp_data.csv")
 
 # 2. data analysis --------------------------------------------------------
 
@@ -26,6 +27,9 @@ readr::read_csv(data) %>%
   tidyr::unnest(augment) %>%
   ggplot2::ggplot() +
   ggplot2::geom_point(ggplot2::aes(temperature_C, unitless_y), alpha = 0.5, size = 2) +
-  ggplot2::geom_line(ggplot2::aes(temperature_C, .fitted, color = "red"), alpha = 0.9, size = 1.5, show.legend = FALSE) +
-  ggplot2::labs(x = "temperature (°C)", y = "relative activity", title = "Effect of temperature on predator relative activity")
-ggplot2::ggsave(here::here("output", "figs", "pred_temperature_effects", "temp_vs_pred_activity.jpg"), device = "jpeg")
+  ggplot2::geom_line(ggplot2::aes(temperature_C, .fitted), color = "red", alpha = 0.6, size = 1.0, show.legend = FALSE) +
+  ggplot2::labs(x = "temperature (°C)", y = "relative activity") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(axis.title = element_text(size = 10))
+  
+ggplot2::ggsave(here::here(proj_dir,"output", "figs", "pred_temperature_effects", "temp_vs_pred_activity.jpg"), width = 5, height = 3)

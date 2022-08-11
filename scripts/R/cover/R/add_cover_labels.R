@@ -9,119 +9,139 @@ library(sf)
 
 data_path <- here::here("scripts", "R", "cover", "data", "ds2890.shp")
 
-data <- read_sf(data_path)
+data <- sf::read_sf(data_path)
 
 # 2. functions ------------------------------------------------------------
 
+# extracts numbers from a character string
+
 extract_nums <- function(string) {
-  str_extract_all(string, "\\(?[0-9,.]+\\)?")
+  stringr::str_extract_all(string, "\\(?[0-9,.]+\\)?")
 }
+
+# calculates the mean height depending on the numbers extracted from a string;
+# e.g., "1 - 5m" would return the mean of 1 and 5
 
 calc_height <- function(nums_as_string) {
   nums <- nums_as_string %>%
     as.numeric()
   if (length(nums) > 1) {
     return(mean(nums))
-  } else if (nums == 1) {
+  } else if (nums <= 1) {
     return(nums / 2)
   } else {
     return(nums)
   }
 }
 
+# uses map_dbl to return all height values from a list of strings
+
 calc_all_heights <- function(height_list) {
-  height_list <- replace_na(height_list, "0")
+  height_list <- tidyr::replace_na(height_list, "0")
   nums_as_strings <- extract_nums(height_list)
-  map_dbl(nums_as_strings, calc_height)
+  purrr::map_dbl(.x = nums_as_strings, .f = calc_height)
+}
+
+# joins a vector of strings using the "|" character
+
+make_word_filter <- function(list) {
+  paste(list, collapse = "|")
+}
+
+save_shape_file <- function(file, file_name, output_path) {
+  sf::st_write(file, here::here(output_path, paste0(file_name, ".shp")), delete_layer = TRUE)
 }
 
 # 3. analysis -------------------------------------------------------------
 
-new_cover_file <- data %>%
-  rename_with(tolower) %>%
-  mutate(
-    across(
-      .cols = c(per_total, per_tree),
-      .fns = ~ replace_na(.x, 0) / 100,
-    ),
-    height = calc_all_heights(ht_code),
-    per_tree = case_when(
-      per_tree > 1 ~ 0,
-      TRUE ~ per_tree
-    )
-  ) %>%
-  rename(vegetation = per_total,
-         pct_tree_cover = per_tree) %>% 
-  select(height, vegetation, pct_tree_cover) 
+# list of words related to forests for filtering relevant polygons
 
-# TODO: decide which veg category column to keep
+wood_words <- c(
+  "wood",
+  "forest"
+)
+
+# bundles the list into a single character separated by "|" (i.e., "OR")
+
+wood_filter <- make_word_filter(wood_words)
+
+gravel_sand_words <- c(
+  "sand",
+  "gravel"
+)
+
+gravel_sand_filter <- make_word_filter(gravel_sand_words)
+
+rock_words <- c(
+  "rock",
+  "boulder",
+  "cliff"
+)
+
+rock_filter <- make_word_filter(rock_words)
+
+new_base_file <- data %>%
+  # make columns lowercase so they are more consistently named
+  dplyr::rename_with(tolower) %>%
+  dplyr::filter(!grepl("mines", cv_group)) %>% 
+  dplyr::mutate(
+    # make the CV_Group column values lowercase for easier filtering
+    cv_group = tolower(cv_group),
+    # make percents into proportions
+    dplyr::across(
+      .cols = c(per_hardwo:per_shrub, per_total),
+      .fns = ~ tidyr::replace_na(.x, 0) / 100,
+    ),
+    # some values of cover were above 100% for some reason but should be 0
+    dplyr::across(
+      .cols = c(per_hardwo:per_shrub, per_total),
+      # can use dplyr's vectorized if_else func b/c both T and F are the same data type
+      .fns = ~ dplyr::if_else(.x >= 1, 0, .x)
+    ),
+    # rescaling percent cover so that it's 0 to 1
+    dplyr::across(
+      .cols = c(per_hardwo:per_shrub, per_total),
+      .fns = ~ .x / max(per_total)
+    ),
+    # height was a string, so this pulls out useful values as floats
+    height = calc_all_heights(ht_code),
+    veg = per_total - per_tree,
+    wood = per_tree,
+    # create new class names for the polygons
+    class = dplyr::case_when(
+      grepl(wood_filter, cv_group) ~ "t_wood",
+      grepl(gravel_sand_filter, cv_group) ~ "gravel",
+      grepl(rock_filter, cv_group) ~ "rock",
+      grepl("urban", cv_group) ~ "urban",
+      grepl("water", cv_group) ~ "water",
+      TRUE ~ "t_veg"
+    ),
+    # add substrate values; most will be NA as they are unknown
+    # can (and should) be updated by the user
+    # some substrate data is included to some degree in the shape file
+    # using "NA_real_" so that dplyr's if_else will return a number or an NA
+    fine = dplyr::if_else(class == "gravel", 0.5, NA_real_),
+    gravel = dplyr::if_else(class == "gravel", 0.5, NA_real_),
+    cobble = NA_real_,
+    rock = dplyr::if_else(class == "rock", 1, NA_real_)
+  ) %>%
+  dplyr::select(class, height:rock) %>%
+  mutate(across(
+    .cols = height:rock,
+    ~ if_else(class == "water" | class == "urban", NA_real_, .x)
+  ))
+
+# separate out the base file into shapefiles for ground cover and canopy cover
+ground_cover <- new_base_file %>%
+  dplyr::select(-height)
+
+canopy <- new_base_file %>%
+  dplyr::select(height, wood) %>%
+  dplyr::filter(height >= 3)
 
 # 4. save output ----------------------------------------------------------
 
 output_path <- here::here("scripts", "R", "cover", "output")
-
-st_write(new_cover_file, here(output_path, "cover_file.shp"), delete_layer = TRUE)
-
-
-
-
-
-#
-# tic()
-# data %>%
-#   mutate(height = case_when(HT_CODE == "< 1m" ~ 0.5,
-#                             HT_CODE == "1 - 5m" ~ 3,
-#                             HT_CODE == "20 - 50m" ~ 35,
-#                             HT_CODE == "5 - 20m" ~ 12.5,
-#                             TRUE ~ 0))
-# toc()
-#
-
-
-# full_veg <- list("RWF: Riparian Evergreen and Deciduous Woodland" ,
-#                  "IMF: Introduced North American Mediterranean Forest",
-#                  "VPG: California Vernal Pool and Grassland Matrix" ,
-#                  "CAI: California Introduced Annual and Perennial Herbaceous"   ,
-#                  "WVO: California Broadleaf Forest and Woodland"    ,
-#                  "CFG: California Annual Forbs and Grasses" ,
-#                  "RWS: Southwestern North American Riparian Wash/Scrub"   ,
-#                  "FEM: Freshwater Emergent Marsh"     ,
-#                  "WTM: California Warm Temperate Marsh/Seep" ,
-#                  "NTF: Naturalized Temperate Pacific Freshwater Vegetation"  ,
-#                  "RIS: Riparian Introduced Scrub"        ,
-#                  "TFF: Temperate Freshwater Floating Mat",
-#                  "NRW: Naturalized Warm-Temperate Riparian/Wetland" ,
-#                  "SSB: Southwestern North American Salt Basin and High Marsh" ,
-#                  "AGP: Alkali Grassland - Playa/Pool Matirx"   ,
-#                  "VRF: Vancouverian Riparian Deciduous Forest"   ,
-#                  "VPB: Californian Mixed Annual/Perennial Freshwater Vernal Pool/Swale Bottomland",
-#                  "TBM: Temperate Pacific Tidal Salt and Brackish Meadow" ,
-#                  "CSS: Central and South Coastal California Seral Scrub",
-#                  "CPG: California Perennial Grassland"  ,
-#                  "ECW: California Evergreen Coniferous Forest and Woodland" ,
-#                  "CXC: California Xeric Chaparral"  ,
-#                  "VCM: Vancouverian Coastal/Tidal Marsh and Meadow"   ,
-#                  "LDS: Lower Bajada and Fan Mojavean-Sonoran desert scrub"   ,
-#                  "SAM: Southwestern North American Alkali Marsh/Seep Vegetation"    ,
-#                  "DUP: Dry Upland Perennial Grassland",
-#                  "DAM: Western North American Disturbed Alkaline Marsh and Meadow"   ,
-#                  "NMS: Naturalized non-native Mediterranean scrub"   ,
-#                  "RMM: Western North American Ruderal Marsh, Wet Meadow & Shrubland Group",
-#                  "CCS: Central and South coastal Californian coastal sage scrub"    ,
-#                  "BDS: California Coastal evergreen bluff and dune scrub"
-# )
-# half_veg <- list("AGR: Agriculture",
-#                  "SVP: Sparsely Vegetated Playa/Pool"   )
-# low_veg <- list("BGS: Bare - Gravel/Sand" ,
-#                 "WAT: Water" )
-# no_veg <- list("QMG: Stripmines, quarries and gravel pits",
-#                "URB: Urban",
-#                "CRO: Cliffs and rock outcrop"
-# )
-#
-# data_2 <- data %>%
-#   mutate(vegetation = case_when(CV_Group %in% full_veg ~ 1,
-#                                 CV_Group %in% half_veg ~ 0.5,
-#                                 CV_Group %in% low_veg ~ 0.1,
-#                                 TRUE ~ 0),
-#   )
+files <- list(ground_cover, canopy)
+filenames <- c("ground_cover", "canopy")
+purrr::walk2(files, filenames, save_shape_file, output_path = output_path)

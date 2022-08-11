@@ -10,8 +10,8 @@ plan(multisession)
 
 # 1. load source scripts -----------------------------------------------------
 
-file_paths <- list(here('data-raw/dis_to_cov_sim_funcs.R'), 
-                   here('data-raw/cov_sim_params.R'))
+file_paths <- list(here('scripts/R/predation/data-raw/dis_to_cov_sim_funcs.R'), 
+                   here('scripts/R/predation/data-raw/cov_sim_params.R'))
 walk(file_paths, source)
 
 # 2. run simulation ----------------------------------------------------------

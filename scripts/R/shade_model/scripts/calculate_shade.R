@@ -61,7 +61,12 @@ shade_shape = st_read(paste0(input_folder,
                               input_data["folder",],
                               "/cover/",
                               input_data["canopy cover",]), quiet = TRUE) %>% 
-  st_simplify(dTolerance = simplfly_tolarence)
+  st_simplify(dTolerance = simplfly_tolarence) %>% 
+  # Filter out empty ones
+  filter(!st_is_empty(.)) %>% 
+  group_by(height) %>%
+  summarize() %>% 
+  ungroup()
 
 
 # Check to see if the files exists
