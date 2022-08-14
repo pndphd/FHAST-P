@@ -2,31 +2,8 @@
 # This file runs the functions to sample rasters onto a grid 
 
 ##### Inputs #####
-# the location of the main input file
-input_folder = "../input_data/"
-input_file = "input_file.txt"
-# Location of grid
-grid_folder = "./temporary/R/"
-# Where to save the output
-output_folder = "./temporary/NetLogo/"
-
-##### Libraries #####
-# the simple features library for most of the shape file stuff
-library(sf)
-# leaflet for plotting shape files
-library(leaflet)
-# you know why
-library(tidyverse)
-# deal with most of the rater calculations
-library(raster)
-# to smooth the center line of the river
-library(smoothr)
-# the viridis color map
-library(viridis)
-# a faster way to do raster sampling with shape files
-library(exactextractr)
-library(furrr)
-library(tictoc)
+# Load Libraries and some base parameters
+source("./scripts/R/main/load_libraries.R")
 
 # Make sure the area function is raster::area 
 area = raster::area
@@ -45,7 +22,7 @@ input_data <- read.csv(file = paste0(input_folder, input_file),
   mutate(value = str_trim(value, side = c("both")))
 
 # load the river grid
-river_grid = readRDS(paste0(grid_folder, "river_grid_", input_data["resolution",],
+river_grid = readRDS(paste0(temp_folder, "R/river_grid_", input_data["resolution",],
                             "_", input_data["buffer",], ".rds"))
 
 # Location of rasters
@@ -58,8 +35,6 @@ flows = as.numeric(strsplit(substr(input_data["flows",],
                            1,
                            nchar(input_data["flows",])), ',')[[1]])
 
-# setup parallel processing
-plan(multisession, workers = as.numeric(input_data["cores used",]))
 
 ##### Main Part #####
 # Put all the rasters in a stack
@@ -98,7 +73,7 @@ sampeled_grid = sample_grid(stack = raster_stack_v,
 ##### Save Outputs #####
 # write the data
 write.csv(sampeled_grid,
-          paste0(output_folder, "Depth_Velocity_Data_Input_",
+          paste0(temp_folder, "NetLogo/Depth_Velocity_Data_Input_",
                  input_data["resolution",],
                  "_", input_data["buffer",], ".csv"),
           na = "0", 

@@ -8,37 +8,8 @@
 # units are whatever the crs of the shpe file is
 simplfly_tolarence = 5
 
-# set the main input folders
-input_folder = "../input_data/"
-input_file = "input_file.txt"
-
-##### Libraries #####
-library(tidyverse)
-library(lubridate)
-library(furrr)
-library(sf)
-library(viridis)
-library(shadow)
-library(maptools)
-library(lutz)
-library(tictoc)
-
-select = dplyr::select
-
-# Load a color blind friendly pallet
-cbPalette <- c("#999999",
-               "#0072B2",
-               "#D55E00",
-               "#F0E442",
-               "#56B4E9",
-               "#E69F00",
-               "#0072B2",
-               "#009E73",
-               "#CC79A7")
-
-# Set the random seed
-set.seed(6806665)
-
+# Load Libraries and some base parameters
+source("./scripts/R/main/load_libraries.R")
 
 ##### Load Files #####
 # Load data files
@@ -73,8 +44,6 @@ shade_shape = st_read(paste0(input_folder,
 if (0 < sum(!file.exists(grid_file_name)))
   stop('An input file does not exist.')
 
-# setup parallel processing
-plan(multisession, workers = as.numeric(input_data["cores used",]))
 
 # Make a list on months but in time format
 # also add in an arbitary year and time
@@ -157,9 +126,9 @@ result = future_map(times_list, ~make_shade_shape(shade_shape, .x)) %>%
   future_map2(seq(1,12,1), ~rename(.x, !!paste0("shade_", .y) := shade))
 
 # get the location of the center for plotting
-location = shade_shape %>% 
-  summarize(geometry = st_union(geometry)) %>% 
-  st_centroid()
+# location = shade_shape %>% 
+#   summarize(geometry = st_union(geometry)) %>% 
+#   st_centroid()
 
 # Print a plot
 # result_plot = bind_rows(result) %>% 
@@ -174,6 +143,6 @@ location = shade_shape %>%
 # print(plot_1)
 
 # save the file
-saveRDS(result, file = "./temporary/R/shade_file.rds")
+saveRDS(result, file = paste0(temp_folder, "R/shade_file.rds"))
 
 

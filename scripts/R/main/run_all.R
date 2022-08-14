@@ -2,6 +2,9 @@
 # This is just a series or source calls of the scripts
 ##########
 
+# Load Libraries and some base parameters
+source("./scripts/R/main/load_libraries.R")
+
 # Make the daily input file
 source("./scripts/R/daily_inputs/scripts/make_the_input_file.R")
 

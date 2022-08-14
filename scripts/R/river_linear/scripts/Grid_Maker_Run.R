@@ -1,32 +1,8 @@
 ##### Description #####
 # This script runs the necessary functions to make and save a rive grid
 
-##### Inputs #####
-# the location of the center line, top point, resolution
-# and width of the grid are all set in a input file contained in this folder
-input_folder = "../input_data/"
-input_file = "input_file.txt"
-
-##### Libraries #####
-# the simple features library for most of the shape file stuff
-library(sf)
-# leaflet for plotting shapefiles
-library(leaflet)
-# you know why
-library(tidyverse)
-# deal with most of the rater calculations
-library(raster)
-# to smooth the center line of the river
-library(smoothr)
-# the viridis color map
-library(viridis)
-# For compareCRS
-library(raster)
-# a faster way to do raster sampling with shape files
-library(exactextractr)
-
-# make sure select is dplyr::select
-select = dplyr::select
+# Load Libraries and some base parameters
+source("./scripts/R/main/load_libraries.R")
 
 # load functions used in the script
 source("./scripts/R/river_linear/scripts/Grid_Maker_Functions.R")
@@ -94,14 +70,14 @@ grid = make_grid(resolution = resolution,
                            ifelse(left_or_right<0, lat_dist, -lat_dist), 0))
 
 ##### Save Outputs #####
-saveRDS(grid, paste0("./temporary/R/river_grid_", resolution, "_", max_buffer, ".rds"))
-write_sf(grid, paste0("./temporary/R/river_grid_", resolution, "_", max_buffer, ".shp"),
+saveRDS(grid, paste0(temp_folder, "R/river_grid_", resolution, "_", max_buffer, ".rds"))
+write_sf(grid, paste0(temp_folder, "R/river_grid_", resolution, "_", max_buffer, ".shp"),
          driver ="ESRI Shapefile")
 
 # Write a file for netlogo to read resolution
 netlogo_resolution = data.frame(resolution = resolution,
                                 buffer = max_buffer)
-write.csv(netlogo_resolution, "./temporary/NetLogo/resolution.csv")
+write.csv(netlogo_resolution, paste0(temp_folder, "NetLogo/resolution.csv"))
 
 ##### make plots #####
 make_leaflet_map(grid, "poly")

@@ -1,68 +1,35 @@
 ##### Description #####
 # This is the main folder to summarize habitat over the time window
+# libraries 
 
-##### Libraries #####
-library(dplyr)
-library(tidyverse)
-library(lubridate)
-library(furrr)
-library(ggplot2)
-library(sf)
-library(viridis)
-library(here)
-
-# Make sure raster::select is not defult
-select <- dplyr::select
-
-# Load a color blind friendly pallet
-cbPalette <- c(
-  "#999999",
-  "#0072B2",
-  "#D55E00",
-  "#F0E442",
-  "#56B4E9",
-  "#E69F00",
-  "#0072B2",
-  "#009E73",
-  "#CC79A7"
-)
-
-# Set the random seed
-set.seed(6806665)
-
-# set the main input folders
-input_folder = "../input_data/"
-input_file = "input_file.txt"
+# Load Libraries and some base parameters
+source("./scripts/R/main/load_libraries.R")
 
 # Load the functions
 source("./scripts/R/habitat_summary/scripts/functions_habitat_summary.R")
 
 # Load the pred risk functions
-source(file = here("scripts", "R", "predation", "R", "add_predators", "add_preds_funcs.R")) 
+source(file = here("scripts", "R", "predation", "R", "add_predators", "add_preds_funcs.R"))
 
 ##### Load Files #####
-input_data <- read.csv(file = paste0(input_folder, input_file),
-                       sep = "=",
-                       row.names = 1,
-                       header = FALSE) %>% 
+input_data <- read.csv(
+  file = paste0(input_folder, input_file),
+  sep = "=",
+  row.names = 1,
+  header = FALSE
+) %>%
   # Trim off white spaces form values
-  rename(value = 1) %>% 
+  rename(value = 1) %>%
   mutate(value = str_trim(value, side = c("both")))
-
-# get the values
-cores_used = as.numeric(input_data["cores used",])
-# Make the plan for the future package
-plan(multisession, workers = cores_used)
 
 # inputs for development
 script_params <- list(
-  resolution = input_data["resolution",],
-  buffer = input_data["buffer",],
-  preds_per_hectare = input_data["predator density",],
-  conv = input_data["conversion",],
-  reaction_distance = input_data["reaction distance",]
-)
-
+  resolution = input_data["resolution", ],
+  buffer = input_data["buffer", ],
+  preds_per_hectare = input_data["predator density", ],
+  conv = input_data["conversion", ],
+  reaction_distance = input_data["reaction distance", ]
+) %>% map(as.numeric) # make sure values are numeric rather than strings
 
 # Load data files
 raster_file_name <- paste0(
@@ -123,17 +90,21 @@ habitat_temp <- shape_file %>%
   select(-area) %>%
   left_join(raster_file, by = c("distance", "lat_dist"))
 
-input_variables = c("mean.D", "mean.V", "wetd.")
-output_variables = c("depth", "velocity", "wetted_fraction")
+input_variables <- c("mean.D", "mean.V", "wetd.")
+output_variables <- c("depth", "velocity", "wetted_fraction")
 
-spread_data = future_map2(input_variables, output_variables,
-                          ~spread_flows(habitat_temp, .x, .y)) %>% 
+spread_data <- future_map2(
+  input_variables, output_variables,
+  ~ spread_flows(habitat_temp, .x, .y)
+) %>%
   reduce(left_join, by = c("lat_dist", "distance", "flow"))
 
-habitat <- habitat_temp %>% 
-  select(-starts_with("mean.D"),
-         -starts_with("mean.V"),
-         -starts_with("wetd.D")) %>% 
+habitat <- habitat_temp %>%
+  select(
+    -starts_with("mean.D"),
+    -starts_with("mean.V"),
+    -starts_with("wetd.D")
+  ) %>%
   right_join(spread_data, by = c("lat_dist", "distance"))
 
 # get all the flows for which we have a raster
@@ -143,15 +114,30 @@ flows <- as.numeric(unique(habitat$flow))
 
 ##### Run the time series #####
 # Make the time series data
-time_series_data <- make_time_series_data(daily_file,
-                                          habitat,
-                                          flows,
-                                          sig_figs = 2) %>%
-  mutate(wetted = ifelse(depth > 0, 1, 0))
-##### Taken out until Ted updated after variable name changes
-#%>%
+time_series_data <- make_time_series_data(
+  daily_file,
+  habitat,
+  flows,
+  sig_figs = 2
+) %>%
+  mutate(
+    wetted = dplyr::if_else(depth > 0, 1, 0),
+    substrate = rowSums(across(gravel:rock)),
+    substrate = dplyr::if_else(substrate >= fine & substrate > 0, 1, 0)
+  ) %>%
+  rename(shade_orig = shade) %>% 
+  mutate(shade = if_else(shade_orig >= 0.5, 1, 0)) %>% 
   # calculate predation risk
- # calc_preds_per_time(day, model_params, script_params, temp_params) 
+  calc_preds_per_time(
+    day,
+    model_params,
+    script_params,
+    temp_params
+  ) %>%
+  select(-c(substrate, shade)) %>% 
+  rename(shade = shade_orig)
+
+# TODO check shade and depth <= 0
 
 ##### Do daily calculations #####
 daily_wetted_area <- multiply_and_sum(

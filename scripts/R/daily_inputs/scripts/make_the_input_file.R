@@ -2,33 +2,8 @@
 # This script takes an input file and reads form it what type of flow and temperature
 # input file the program should make. It then makes it.
 
-# set the main input folders
-input_folder = "../input_data/"
-input_file = "input_file.txt"
-
-##### Libraries #####
-library(dplyr)
-library(stringr)
-library(lubridate)
-library(purrr)
-library(ggplot2)
-library(patchwork)
-
-select = dplyr::select
-
-# Load a color blind friendly pallet
-cbPalette <- c("#999999",
-               "#0072B2",
-               "#D55E00",
-               "#F0E442",
-               "#56B4E9",
-               "#E69F00",
-               "#0072B2",
-               "#009E73",
-               "#CC79A7")
-
-# Set the random seed
-set.seed(6806665)
+# Load Libraries and some base parameters
+source("./scripts/R/main/load_libraries.R")
 
 # Load the functions
 source("./scripts/R/daily_inputs/scripts/functions_make_the_input_file.R")
@@ -191,7 +166,7 @@ daily_input_file = output_data %>%
   mutate(month = month(as_date(date, format = "%m/%d/%Y")))
 
 write.csv(x = daily_input_file,
-          file = "./temporary/NetLogo/daily_input_file.csv",
+          file = paste0(temp_folder, "NetLogo/daily_input_file.csv"),
           row.names = FALSE)
 
 ##### Plots #####

@@ -2,36 +2,8 @@
 # This runs the scripts and functions to sampel shape filees witht he grid
 
 ##### Inputs #####
-# the location of the main input file
-input_folder = "../input_data/"
-input_file = "input_file.txt"
-# Location of grid
-grid_folder = "./temporary/R/"
-# Where to save the output
-output_folder = "./temporary/NetLogo/"
-
-##### Libraries #####
-# the simple features library for most of the shape file stuff
-library(sf)
-# leaflet for plotting shapefiles
-library(leaflet)
-# deal with most of the rater calculations
-library(raster)
-# you know why
-library(tidyverse)
-# to smooth the center line of the river
-library(smoothr)
-# the viridis color map
-library(viridis)
-# a faster way to do raster sampling with shape files
-library(exactextractr)
-# Library to parallelize purrr
-library(furrr)
-# Library to join graphs
-library(patchwork)
-
-# Make sure dplyr select is the default
-select = dplyr::select
+# Load Libraries and some base parameters
+source("./scripts/R/main/load_libraries.R")
 
 # Load the function to sample shapes on the grid
 source("./scripts/R/spatial_inputs/scripts/Sample_Shapes_Functions.R")
@@ -51,7 +23,7 @@ resolution = as.numeric(input_data["resolution",])
 max_buffer = as.numeric(input_data["buffer",])
 
 # load the river grid
-river_grid = readRDS(paste0(grid_folder, "river_grid_", input_data["resolution",],
+river_grid = readRDS(paste0(temp_folder, "R/river_grid_", input_data["resolution",],
                             "_", input_data["buffer",], ".rds"))
 
 # Load the cover file
@@ -68,9 +40,7 @@ canopy_shape = st_read(paste0(input_folder,
 # Load the shade file
 shade_file = readRDS("./temporary/R/shade_file.rds") 
 
-# Setup furrr
-future::plan(multisession, workers = as.numeric(input_data["cores used",]))
-future.seed = FALSE
+
 
 ##### Main Work #####
 # make a list of files and variabel names
@@ -92,8 +62,8 @@ shapes_csv = sampeled_to_csv(sampeled_shapes)
 
 ##### Save Outputs #####
 write.csv(shapes_csv,
-          paste0(output_folder,
-                 "Shape_Data_Input_", resolution,"_", max_buffer, ".csv"),
+          paste0(temp_folder,
+                 "NetLogo/Shape_Data_Input_", resolution,"_", max_buffer, ".csv"),
           na = "-9999",
           row.names = FALSE)
 

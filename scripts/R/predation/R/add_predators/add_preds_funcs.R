@@ -1,8 +1,5 @@
-library(tidyverse)
-library(here)
-library(tictoc)
-library(furrr)
-plan(multisession)
+# Load Libraries and some base parameters
+source("./scripts/R/main/load_libraries.R")
 
 # 1. functions ---------------------------------------------------------------
 

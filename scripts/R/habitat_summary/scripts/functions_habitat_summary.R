@@ -41,7 +41,7 @@ make_time_series_data = function(hydrograph, habitat_data, flows_list, sig_figs)
         select(fraction_high_depth, fraction_high_velocity, distance, lat_dist) %>% 
         left_join(filter_low_flow, by = c("distance", "lat_dist")) %>%
         mutate(depth = round(fraction_low_depth + fraction_high_depth, sig_figs),
-               velcoity = round(fraction_low_velocity + fraction_high_velocity, sig_figs)) %>%
+               velocity = round(fraction_low_velocity + fraction_high_velocity, sig_figs)) %>%
         mutate(date = current$date,
                day = current$day,
                this_month = month(date),
