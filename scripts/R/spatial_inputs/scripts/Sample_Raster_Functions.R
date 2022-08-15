@@ -20,7 +20,7 @@ load_rasters = function(type = NULL,
                         folder = NULL,
                         flows = NULL){
   
-  # browser()
+  browser()
 
   type_letter = get_type_letter(type)
 

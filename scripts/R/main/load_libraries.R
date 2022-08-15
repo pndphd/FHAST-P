@@ -50,6 +50,7 @@ packages = c(
   "smoothr",
   "exactextractr",
   "raster",
+  "terra",
   
   # Data viz libraries 
   "ggplot2",
