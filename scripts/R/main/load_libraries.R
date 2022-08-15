@@ -73,5 +73,8 @@ input_data <- read.csv(file = paste0(input_folder, input_file),
   mutate(value = str_trim(value, side = c("both")))
 
 # Setup furrr
-future::plan(multisession, workers = as.numeric(input_data["cores used",]))
+# future::plan(strategy = multisession,
+#              workers = as.numeric(input_data["cores used",]))
+
+plan("future::multisession")
 future.seed = FALSE

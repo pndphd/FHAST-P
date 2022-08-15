@@ -43,14 +43,17 @@ raster_stack_d = load_rasters(type = "depth",
                               folder = raster_folder,
                               flows = flows)
 
+
 # Put all the rasters in a stack
 raster_stack_v = load_rasters(type = "velocity",
                               folder = raster_folder,
-                              flows = flows)
+                              flows = flows) 
 
 # Check that all CRSs are the same
-if (!(compareCRS(raster_stack_v, raster_stack_d) &
-      compareCRS(river_grid, raster_stack_d))) {
+v_stack = stack(map(flows,~raster(paste0(raster_folder, "/V", .x, ".tif"))))
+d_stack = stack(map(flows,~raster(paste0(raster_folder, "/D", .x, ".tif"))))
+if (!(compareCRS(v_stack, d_stack) &
+      compareCRS(river_grid, d_stack))) {
   stop('The CRSs of some of your files are not the same.')
 }
 

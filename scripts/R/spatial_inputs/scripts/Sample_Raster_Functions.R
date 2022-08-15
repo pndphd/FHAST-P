@@ -19,23 +19,25 @@ get_type_letter = function(type = NULL){
 load_rasters = function(type = NULL,
                         folder = NULL,
                         flows = NULL){
+  
+  # browser()
 
   type_letter = get_type_letter(type)
 
-  stack = stack(map(flows,~raster(paste0(folder, "/", type_letter, .x, ".tif"))))
-  
+  stack = rast(map(flows,~rast(paste0(folder, "/", type_letter, .x, ".tif"))))
+
   if(type_letter == "D"){
     # Use terrain to calculate the slope and the correction for area
-    slope_raster = raster(paste0(folder, "D", max(flows), ".tif")) %>% 
-      terrain(opt="slope", neighbors = 4)  %>% 
-      calc(fun = function(x){1/cos(x)})
+    slope_raster = rast(paste0(folder, "D", max(flows), ".tif")) %>%
+      terrain(v="slope", neighbors = 4, unit = "radians")  %>%
+      app(fun = function(x){1/cos(x)})
     # Give the value a name
     names(slope_raster) = "correction_factor"
-    
-    stack = stack %>% 
-      stack(slope_raster)
-    
-  } 
+
+    stack = stack %>%
+      c(slope_raster)
+
+  }
 
   return(stack)
 }
