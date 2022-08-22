@@ -9,12 +9,13 @@
 simplfly_tolarence = 5
 
 # Load Libraries and some base parameters
-source("./scripts/R/main/load_libraries.R")
+library(here)
+source(here("scripts","R","main","load_libraries.R"))
 
 ##### Load Files #####
 # Load data files
 # Read in the main input file file
-input_data <- read.csv(file = paste0(input_folder, input_file),
+input_data <- read.csv(file = here(input_folder, input_file),
                        sep = "=",
                        row.names = 1,
                        header = FALSE) %>% 
@@ -22,15 +23,15 @@ input_data <- read.csv(file = paste0(input_folder, input_file),
   rename(value = 1) %>% 
   mutate(value = str_trim(value, side = c("both")))
 
-grid_file_name = paste0("./temporary/R/river_grid_",
+grid_file_name = here(temp_folder, "R", paste0("river_grid_",
                         input_data["resolution",], "_",
-                        input_data["buffer",], ".rds")
+                        input_data["buffer",], ".rds"))
 
 # Load the canopy cover zone file 
 # simplify it to speed up
-shade_shape = st_read(paste0(input_folder, 
+shade_shape = st_read(here(input_folder, 
                               input_data["folder",],
-                              "/cover/",
+                              "cover",
                               input_data["canopy cover",]), quiet = TRUE) %>% 
   st_simplify(dTolerance = simplfly_tolarence) %>% 
   # Filter out empty ones
@@ -143,6 +144,6 @@ result = future_map(times_list, ~make_shade_shape(shade_shape, .x)) %>%
 # print(plot_1)
 
 # save the file
-saveRDS(result, file = paste0(temp_folder, "R/shade_file.rds"))
+saveRDS(result, file = here(temp_folder, "R", "shade_file.rds"))
 
 

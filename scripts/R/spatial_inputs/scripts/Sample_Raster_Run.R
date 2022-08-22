@@ -3,17 +3,18 @@
 
 ##### Inputs #####
 # Load Libraries and some base parameters
-source("./scripts/R/main/load_libraries.R")
+library(here)
+source(here("scripts","R","main","load_libraries.R"))
 
 # Make sure the area function is raster::area 
 area = raster::area
 
 # load the functions for this script
-source("./scripts/R/spatial_inputs/scripts/Sample_Raster_Functions.R")
+source(here("scripts","R","spatial_inputs","scripts","Sample_Raster_Functions.R"))
 
 ##### Load Files #####
 # Read in the main input file file
-input_data <- read.csv(file = paste0(input_folder, input_file),
+input_data <- read.csv(file = here(input_folder, input_file),
                        sep = "=",
                        row.names = 1,
                        header = FALSE) %>% 
@@ -22,13 +23,13 @@ input_data <- read.csv(file = paste0(input_folder, input_file),
   mutate(value = str_trim(value, side = c("both")))
 
 # load the river grid
-river_grid = readRDS(paste0(temp_folder, "R/river_grid_", input_data["resolution",],
-                            "_", input_data["buffer",], ".rds"))
+river_grid = readRDS(here(temp_folder, "R",paste0("river_grid_", input_data["resolution",],
+                            "_", input_data["buffer",], ".rds")))
 
 # Location of rasters
-raster_folder = paste0(input_folder, 
+raster_folder = here(input_folder, 
                        input_data["folder",],
-                       "/flow/")
+                       "flow")
 
 # read the flow values
 flows = as.numeric(strsplit(substr(input_data["flows",],
@@ -50,8 +51,8 @@ raster_stack_v = load_rasters(type = "velocity",
                               flows = flows) 
 
 # Check that all CRSs are the same
-v_stack = stack(map(flows,~raster(paste0(raster_folder, "/V", .x, ".tif"))))
-d_stack = stack(map(flows,~raster(paste0(raster_folder, "/D", .x, ".tif"))))
+v_stack = stack(map(flows,~raster(here(raster_folder, paste0("V", .x, ".tif")))))
+d_stack = stack(map(flows,~raster(here(raster_folder, paste0("D", .x, ".tif")))))
 if (!(compareCRS(v_stack, d_stack) &
       compareCRS(river_grid, d_stack))) {
   stop('The CRSs of some of your files are not the same.')
@@ -76,9 +77,9 @@ sampeled_grid = sample_grid(stack = raster_stack_v,
 ##### Save Outputs #####
 # write the data
 write.csv(sampeled_grid,
-          paste0(temp_folder, "NetLogo/Depth_Velocity_Data_Input_",
+          here(temp_folder, "NetLogo", paste0("Depth_Velocity_Data_Input_",
                  input_data["resolution",],
-                 "_", input_data["buffer",], ".csv"),
+                 "_", input_data["buffer",], ".csv")),
           na = "0", 
           row.names = FALSE)
 

@@ -3,14 +3,15 @@
 
 ##### Inputs #####
 # Load Libraries and some base parameters
-source("./scripts/R/main/load_libraries.R")
+library(here)
+source(here("scripts","R","main","load_libraries.R"))
 
 # Load the function to sample shapes on the grid
-source("./scripts/R/spatial_inputs/scripts/Sample_Shapes_Functions.R")
+source(here("scripts","R","spatial_inputs","scripts","Sample_Shapes_Functions.R"))
 
 ##### Load Files #####
 # Read in the main input file file
-input_data <- read.csv(file = paste0(input_folder, input_file),
+input_data <- read.csv(file = here(input_folder, input_file),
                        sep = "=",
                        row.names = 1,
                        header = FALSE) %>% 
@@ -23,24 +24,22 @@ resolution = as.numeric(input_data["resolution",])
 max_buffer = as.numeric(input_data["buffer",])
 
 # load the river grid
-river_grid = readRDS(paste0(temp_folder, "R/river_grid_", input_data["resolution",],
-                            "_", input_data["buffer",], ".rds"))
+river_grid = readRDS(here(temp_folder, "R",paste0("river_grid_", input_data["resolution",],
+                            "_", input_data["buffer",], ".rds")))
 
 # Load the cover file
-cover_shape = st_read(paste0(input_folder, 
+cover_shape = st_read(here(input_folder, 
                              input_data["folder",],
-                             "/cover/",
+                             "cover",
                              input_data["cover file",]), quiet = TRUE) 
 # Load the canopy cover zone file
-canopy_shape = st_read(paste0(input_folder, 
+canopy_shape = st_read(here(input_folder, 
                               input_data["folder",],
-                              "/cover/",
+                              "cover",
                               input_data["canopy cover",]), quiet = TRUE) 
 # Load the vegetation bank file
 # Load the shade file
-shade_file = readRDS("./temporary/R/shade_file.rds") 
-
-
+shade_file = readRDS(here(temp_folder, "R", "shade_file.rds")) 
 
 ##### Main Work #####
 # make a list of files and variabel names
@@ -58,12 +57,11 @@ sampeled_shapes = sample_all_shapes(river_grid,
                                     the_variables,
                                     the_variables)
 
-shapes_csv = sampeled_to_csv(sampeled_shapes)
+shapes_csv = sampled_to_csv(sampeled_shapes)
 
 ##### Save Outputs #####
 write.csv(shapes_csv,
-          paste0(temp_folder,
-                 "NetLogo/Shape_Data_Input_", resolution,"_", max_buffer, ".csv"),
+          here(temp_folder,"NetLogo", paste0("Shape_Data_Input_", resolution,"_", max_buffer, ".csv")),
           na = "-9999",
           row.names = FALSE)
 

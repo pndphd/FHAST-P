@@ -20,15 +20,13 @@ load_rasters = function(type = NULL,
                         folder = NULL,
                         flows = NULL){
   
-  browser()
-
   type_letter = get_type_letter(type)
 
-  stack = rast(map(flows,~rast(paste0(folder, "/", type_letter, .x, ".tif"))))
+  stack = rast(map(flows,~rast(here(folder, paste0(type_letter, .x, ".tif")))))
 
   if(type_letter == "D"){
     # Use terrain to calculate the slope and the correction for area
-    slope_raster = rast(paste0(folder, "D", max(flows), ".tif")) %>%
+    slope_raster = rast(here(folder, paste0("D", max(flows), ".tif"))) %>%
       terrain(v="slope", neighbors = 4, unit = "radians")  %>%
       app(fun = function(x){1/cos(x)})
     # Give the value a name

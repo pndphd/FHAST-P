@@ -1,17 +1,18 @@
 ##### Description #####
 # This script takes an input file and reads form it what type of flow and temperature
 # input file the program should make. It then makes it.
+library(here)
 
 # Load Libraries and some base parameters
-source("./scripts/R/main/load_libraries.R")
+source(here("scripts","R","main","load_libraries.R"))
 
 # Load the functions
-source("./scripts/R/daily_inputs/scripts/functions_make_the_input_file.R")
+source(here("scripts","R","daily_inputs","scripts","functions_make_the_input_file.R"))
 
 ##### Load Files #####
 # Load data files
 # Read in the main input file file
-input_data <- read.csv(file = paste0(input_folder, input_file),
+input_data <- read.csv(file = here(input_folder, input_file),
                        sep = "=",
                        row.names = 1,
                        header = FALSE) %>% 
@@ -20,7 +21,7 @@ input_data <- read.csv(file = paste0(input_folder, input_file),
   mutate(value = str_trim(value, side = c("both")))
 
 #get the name of the input file
-input_file_name = paste0(input_folder, input_data["folder",], "/daily/", input_data["daily file",])
+input_file_name = here(input_folder, input_data["folder",], "daily", input_data["daily file",])
 
 # Check to see if the file exists
 if (!file.exists(input_file_name))
@@ -106,7 +107,7 @@ if (file_type == "distribution"){
   hydro_file_name = input_file["file",]
   
   # Read in the file and convert to date
-  hydro_file = read.csv(file = paste0("./inputs/", hydro_file_name)) %>% 
+  hydro_file = read.csv(file = here("inputs", hydro_file_name)) %>% 
     mutate(date = mdy(date))
   
   # use left join to just get dates wanted and convert to dumb excel date format
@@ -166,7 +167,7 @@ daily_input_file = output_data %>%
   mutate(month = month(as_date(date, format = "%m/%d/%Y")))
 
 write.csv(x = daily_input_file,
-          file = paste0(temp_folder, "NetLogo/daily_input_file.csv"),
+          file = here(temp_folder,"NetLogo","daily_input_file.csv"),
           row.names = FALSE)
 
 ##### Plots #####
@@ -193,8 +194,8 @@ time_series_plot = ggplot(data = output_data, aes(x = mdy(date), y = flow_cms)) 
    labs(x = "Date") 
 
 # Print in outside window
-X11(width = 10, height = 5)
-print(time_series_plot)
+# X11(width = 10, height = 5)
+# print(time_series_plot)
 
 # Make the function for histogram plots
 make_hist_plot = function(data_in, variabel, legend){
@@ -225,8 +226,8 @@ flow_hist_plot = make_hist_plot(output_data,
                                 "Flow (cms)")
 
 # Print in outside window using patchwork
-X11(width = 10, height = 10)
-print(flow_hist_plot / temp_hist_plot)
+# X11(width = 10, height = 10)
+# print(flow_hist_plot / temp_hist_plot)
 
 
 

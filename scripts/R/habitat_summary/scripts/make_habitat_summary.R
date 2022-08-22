@@ -81,7 +81,7 @@ temp_params <- read_csv(temp_params_name)
 raster_file <- raster_file_nas %>%
   mutate(across(
     starts_with(c("mean.D", "mean.V")),
-    ~ ifelse(.x < 0, 0, .x)
+    ~ dplyr::if_else(.x < 0, 0, .x)
   ))
 
 # Join the shape and raster files
@@ -126,7 +126,7 @@ time_series_data <- make_time_series_data(
     substrate = dplyr::if_else(substrate >= fine & substrate > 0, 1, 0)
   ) %>%
   rename(shade_orig = shade) %>% 
-  mutate(shade = if_else(shade_orig >= 0.5, 1, 0)) %>% 
+  mutate(shade = dplyr::if_else(shade_orig >= 0.5, 1, 0)) %>% 
   # calculate predation risk
   calc_preds_per_time(
     day,
@@ -137,7 +137,7 @@ time_series_data <- make_time_series_data(
   select(-c(substrate, shade)) %>% 
   rename(shade = shade_orig)
 
-# TODO check shade and depth <= 0
+# TODO Check area vs bottom area
 
 ##### Do daily calculations #####
 daily_wetted_area <- multiply_and_sum(

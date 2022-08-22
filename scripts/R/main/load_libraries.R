@@ -6,10 +6,13 @@
 # inbornutils (this is not necessary to run FHAST).
 # source("./scripts/R/main/load_inborutils.R")
 
+# Need to load this first
+library(here)
+
 # set the main input folders
-input_folder = "../input_data/"
+input_folder = here("..","input_data")
 input_file = "input_file.txt"
-temp_folder = "./temporary/"
+temp_folder = here("temporary")
 
 # Load a color blind friendly pallet
 cbPalette <- c("#999999", "#0072B2", "#D55E00",
@@ -38,9 +41,10 @@ packages = c(
   "stringr",
   "lubridate",
   
-  # Programing and processing
+  # Programming and processing
   "purrr",
   "furrr",
+  "parallel",
   
   # GIS libraries
   "sf",
@@ -65,7 +69,7 @@ lapply(X = packages, FUN = function(x) install_all(x))
 select = dplyr::select
 
 # Read in the main input file file to get cores used
-input_data <- read.csv(file = paste0(input_folder, input_file),
+input_data <- read.csv(file = here(input_folder, input_file),
                        sep = "=",
                        row.names = 1,
                        header = FALSE) %>% 
@@ -74,8 +78,12 @@ input_data <- read.csv(file = paste0(input_folder, input_file),
   mutate(value = str_trim(value, side = c("both")))
 
 # Setup furrr
-# future::plan(strategy = multisession,
-#              workers = as.numeric(input_data["cores used",]))
 
-plan("future::multisession")
+source(file = here("scripts", "R", "main", "num_cores_func.R"))
+num_cores <- pick_num_cores()
+
+future::plan(strategy = multisession,
+             workers = num_cores)
+
+# plan("future::multisession")
 future.seed = FALSE

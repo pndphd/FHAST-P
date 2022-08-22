@@ -1,16 +1,17 @@
 ##### Description #####
 # This script runs the necessary functions to make and save a rive grid
+library(here)
 
 # Load Libraries and some base parameters
-source("./scripts/R/main/load_libraries.R")
+source(here("scripts","R","main","load_libraries.R"))
 
 # load functions used in the script
-source("./scripts/R/river_linear/scripts/Grid_Maker_Functions.R")
-source("./scripts/R/river_linear/scripts/Map_Maker_Functions.R")
+source(here("scripts","R","river_linear","scripts","Grid_Maker_Functions.R"))
+source(here("scripts","R","river_linear","scripts","Map_Maker_Functions.R"))
 
 ##### Load Files #####
 # Read in the main input file file
-input_data <- read.csv(file = paste0(input_folder, input_file),
+input_data <- read.csv(file = here(input_folder, input_file),
                        sep = "=",
                        row.names = 1,
                        header = FALSE) %>% 
@@ -24,13 +25,13 @@ resolution = as.numeric(input_data["resolution",])
 max_buffer = as.numeric(input_data["buffer",])
 
 # get the paths for the 2 files 
-center_line = paste0(input_folder,
+center_line = here(input_folder,
                      input_data["folder",],
-                     "/grid/",
+                     "grid",
                      input_data["line",])  
-top_marker = paste0(input_folder,
+top_marker = here(input_folder,
                     input_data["folder",],
-                    "/grid/",
+                    "grid",
                     input_data["point",])
 
 shape_files = load_input_files(line = center_line ,
@@ -70,14 +71,14 @@ grid = make_grid(resolution = resolution,
                            ifelse(left_or_right<0, lat_dist, -lat_dist), 0))
 
 ##### Save Outputs #####
-saveRDS(grid, paste0(temp_folder, "R/river_grid_", resolution, "_", max_buffer, ".rds"))
-write_sf(grid, paste0(temp_folder, "R/river_grid_", resolution, "_", max_buffer, ".shp"),
+saveRDS(grid, here(temp_folder, "R", paste0("river_grid_", resolution, "_", max_buffer, ".rds")))
+write_sf(grid, here(temp_folder, "R",paste0("river_grid_", resolution, "_", max_buffer, ".shp")),
          driver ="ESRI Shapefile")
 
 # Write a file for netlogo to read resolution
 netlogo_resolution = data.frame(resolution = resolution,
                                 buffer = max_buffer)
-write.csv(netlogo_resolution, paste0(temp_folder, "NetLogo/resolution.csv"))
+write.csv(netlogo_resolution, here(temp_folder, "NetLogo","resolution.csv"))
 
 ##### make plots #####
 make_leaflet_map(grid, "poly")

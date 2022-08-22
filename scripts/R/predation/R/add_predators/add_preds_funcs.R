@@ -133,7 +133,10 @@ get_total_reach_preds <- function(num_cells, pred_num, cell_width, conv) {
 # nests the input dataframe by time (e.g., per day) and calculates the predator predicitons
 # for each time unit; adds totals and accounts for depths <= 0
 calc_preds_per_time <- function(df, time_col, model_params, script_params, temp_params) {
-  df %>%
+  depth_col <- get_depth_col_name(df) 
+  depth_col <- ensym(depth_col)
+  preds <- df %>%
+    filter(!!depth_col > 0) %>%
     group_nest({{ time_col }}) %>%
     mutate(preds = future_map(
       .x = data,
@@ -143,9 +146,11 @@ calc_preds_per_time <- function(df, time_col, model_params, script_params, temp_
       .options = furrr_options(seed = TRUE)
     )) %>%
     unnest(everything()) %>%
-    drop_when_depth_zero(model_params) %>%
+    # drop_when_depth_zero(model_params) %>%
     add_pred_totals(model_params) %>%
     add_pred_areas(script_params, model_params, temp_params)
+  df %>%
+    full_join(preds)
 }
 
 # adds totals for number of predators and a scaled, total predator habitat rating
@@ -167,11 +172,7 @@ drop_when_depth_zero <- function(df, model_params) {
     mutate(
       across(
         .cols = contains(species_names),
-        .fns = ~ ifelse(
-          test = !!depth_col > 0,
-          yes = .x,
-          no = 0
-        )
+        .fns = ~ ifelse(!!depth_col > 0, .x, 0)
       )
     )
 }

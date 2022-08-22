@@ -5,6 +5,7 @@ extensions [
   csv      ; The extenshion the allows for csv IO
   palette  ; Allows the use of more palets like ColorBrewer
   time     ; Use the LogoTime extenshion to tract dates/time
+  table
 ]
 
 ;########################################################################################
@@ -26,8 +27,8 @@ globals [
   stop_flag           ; A flag to note when the code is done running
 
   ;; Time variables
-  dt                  ; Pointless time variabel to initalize
-  tick-date           ; Variable to track date
+  first_day                 ; Pointless time variabel to initalize
+  tick_date           ; Variable to track date
 
   ;; Daily input variabels
   daily_input_csv     ; The daily flow and temperature data
@@ -47,6 +48,9 @@ globals [
 
   ;; Daily Fish input variables
   daily_fish_csv        ; The column that gives the number of fish per day
+  fish_wo_dates         ; The info for the fish file with not date info
+  paired_fish_list      ; The dates and lists paired
+  paired_fish_table     ; The same paired list but in tabel form
   fish_date_column      ; The column that gives the dates of fish entry
   number_column         ; The column that gives the number of fish
   species_column        ; The column the lists the species of fish
@@ -158,7 +162,7 @@ to setup
   set resolution_file csv:from-file "../../../temporary/NetLogo/resolution.csv"                 ; Read in the resoltuion info
   set resolution item (position "resolution" (item 0 resolution_file)) (item 1 resolution_file) ; Read the resolution form that file
   set buffer item (position "buffer" (item 0 resolution_file)) (item 1 resolution_file)         ; Read the buffer distance form that file
-  set resolution_factor 1000                                                                    ; Set the resolution factor
+  set resolution_factor 600                                                                    ; Set the resolution factor
   set daily_input_csv csv:from-file
     "../../../temporary/NetLogo/daily_input_file.csv"                                           ; Read in the daily flow and temperature
   set flow_input_csv csv:from-file
@@ -175,8 +179,8 @@ to setup
   set month_column (position "month" (item 0 daily_input_csv))
   set temp_column (position "temp_c" (item 0 daily_input_csv))
   ; set the initial time
-  set dt time:create-with-format item date (item 1 daily_input_csv) "MM/dd/yyy"
-  set tick-date time:anchor-to-ticks dt 1 "days"
+  set first_day time:create-with-format item date (item 1 daily_input_csv) "MM/dd/yyy"
+  set tick_date time:anchor-to-ticks first_day 1 "days"
 
   ;; From the fish daily input file
   set number_column (position "number" (item 0 daily_fish_csv))
@@ -259,6 +263,12 @@ end
 ;; Read in all the values for the daily fish CSV file
 to set_daily_fish_counts
   set fish_date_values but-first (map [n -> item fish_date_column n ] daily_fish_csv)
+  ; get all things in the fish input file except date
+  ; this is to make a table latter on
+  set fish_wo_dates but-first (map [n -> but-first n] daily_fish_csv)
+  ; combine the last to to make a paired list then a table
+  set paired_fish_list (map [ [ a b ] -> ( list a b ) ] fish_date_values fish_wo_dates)
+  set paired_fish_table table:from-list paired_fish_list
   set daily_number_values but-first (map [n -> item number_column n ] daily_fish_csv)
   set daily_species_values but-first (map [n -> item species_column n ] daily_fish_csv)
   set daily_ls_values but-first (map [n -> item lifestage_column n ] daily_fish_csv)
@@ -460,13 +470,37 @@ end
 
 ;; Add new fish to the reach
 to hatch_fish
+  loop[
+    let todays_date time:show tick_date "MM/dd/yyyy"
+    let todays_fish table:get-or-default paired_fish_table todays_date -9999
+    table:remove paired_fish_table todays_date
+    if todays_fish = -9999 [stop]
+
+    ; add in fish based on life stage
+    if item (lifestage_column - 1) todays_fish = "adult" [
+      create-adults (item (number_column - 1) todays_fish )[
+        set size 10
+        move-to one-of wet_patches     ; Place the turtle in a top patch
+        set color blue
+        set max_move_dist 300          ; set a max move distance in meters
+        set exit_status 0]
+    ]
+    if item (lifestage_column - 1) todays_fish = "juvenile" [
+      create-juveniles (item (number_column - 1) todays_fish )[
+        set size 10
+        move-to one-of top_patches     ; Place the turtle in a top patch
+        set color red
+        set max_move_dist 100          ; set a max move distance in meters
+        set exit_status 0]
+    ]
+  ]
 
 
-  create-turtles (random 2) [set size 10
-      move-to one-of top_patches     ; Place the turtle in a top patch
-      set color red
-      set max_move_dist 200          ; set a max move distance in meters
-      set exit_status 0]
+;  create-turtles (random 2) [set size 10
+;      move-to one-of top_patches     ; Place the turtle in a top patch
+;      set color red
+;      set max_move_dist 200          ; set a max move distance in meters
+;      set exit_status 0]
 end
 
 ;; Move fish to a new down stream wet cell
@@ -671,11 +705,11 @@ to stop_program
 GRAPHICS-WINDOW
 180
 60
-321
-1056
+269
+666
 -1
 -1
-2.2271714922048997
+1.3363028953229399
 1
 10
 1
