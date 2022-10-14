@@ -1,7 +1,7 @@
 ##### Description #####
 # This script runs the necessary functions to make and save a rive grid
-library(here)
 
+library(here)
 # Load Libraries and some base parameters
 source(here("scripts","R","main","load_libraries.R"))
 
@@ -9,33 +9,23 @@ source(here("scripts","R","main","load_libraries.R"))
 source(here("scripts","R","river_linear","scripts","Grid_Maker_Functions.R"))
 source(here("scripts","R","river_linear","scripts","Map_Maker_Functions.R"))
 
-##### Load Files #####
-# Read in the main input file file
-input_data <- read.csv(file = here(input_folder, input_file),
-                       sep = "=",
-                       row.names = 1,
-                       header = FALSE) %>% 
+
+# load the files
+res_file <- read.csv(file = grid_res_path,
+                    sep = "=",
+                    row.names = 1,
+                    header = FALSE) %>% 
   # Trim off white spaces form values
   rename(value = 1) %>% 
   mutate(value = str_trim(value, side = c("both")))
 
+# Get some variable values
+resolution = as.numeric(res_file["resolution",])
+max_buffer = as.numeric(res_file["buffer",])
 
-# get the values
-resolution = as.numeric(input_data["resolution",])
-max_buffer = as.numeric(input_data["buffer",])
-
-# get the paths for the 2 files 
-center_line = here(input_folder,
-                     input_data["folder",],
-                     "grid",
-                     input_data["line",])  
-top_marker = here(input_folder,
-                    input_data["folder",],
-                    "grid",
-                    input_data["point",])
-
-shape_files = load_input_files(line = center_line ,
-                             top = top_marker)
+# Load the shape files
+shape_files = load_input_files(line = grid_center_line ,
+                               top = grid_top_marker)
 
 ##### Pre Processing #####
 # get a list of distances for buffers
@@ -72,7 +62,12 @@ grid = make_grid(resolution = resolution,
 
 ##### Save Outputs #####
 saveRDS(grid, here(temp_folder, "R", paste0("river_grid_", resolution, "_", max_buffer, ".rds")))
-write_sf(grid, here(temp_folder, "R",paste0("river_grid_", resolution, "_", max_buffer, ".shp")),
+
+# rename some things to avoid a warning
+grid_save = grid %>% 
+  rename(dist = distance,
+         l_or_r = left_or_right)
+write_sf(grid_save, here(temp_folder, "R",paste0("river_grid_", resolution, "_", max_buffer, ".shp")),
          driver ="ESRI Shapefile")
 
 # Write a file for netlogo to read resolution

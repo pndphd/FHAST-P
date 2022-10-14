@@ -1,37 +1,20 @@
 ##### Description #####
 # This script takes an input file and reads form it what type of flow and temperature
 # input file the program should make. It then makes it.
-library(here)
 
+library(here)
 # Load Libraries and some base parameters
 source(here("scripts","R","main","load_libraries.R"))
 
 # Load the functions
 source(here("scripts","R","daily_inputs","scripts","functions_make_the_fish_input_file.R"))
 
-##### Load Files #####
-# Load data files
-# Read in the main input file file
-input_data <- read.csv(file = here(input_folder, input_file),
-                       sep = "=",
-                       row.names = 1,
-                       header = FALSE) %>% 
-  # Trim off white spaces form values
-  rename(value = 1) %>% 
-  mutate(value = str_trim(value, side = c("both")))
-
-#get the name of the input file
-input_file_name = here(input_folder,
-                         input_data["folder",],
-                         "fish",
-                         input_data["fish population file",])
-
 # Check to see if the file exists
-if (!file.exists(input_file_name))
+if (!file.exists(fish_population_file))
   stop('The input file does not exist.')
 
 # Read in the file
-input_file <- read.csv(file = input_file_name,
+input_file <- read.csv(file = fish_population_file,
                       sep = ",",
                       header = TRUE) %>% 
   mutate(date = mdy(date))

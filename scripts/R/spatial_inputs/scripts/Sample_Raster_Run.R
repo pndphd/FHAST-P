@@ -12,30 +12,34 @@ area = raster::area
 # load the functions for this script
 source(here("scripts","R","spatial_inputs","scripts","Sample_Raster_Functions.R"))
 
-##### Load Files #####
-# Read in the main input file file
-input_data <- read.csv(file = here(input_folder, input_file),
-                       sep = "=",
-                       row.names = 1,
-                       header = FALSE) %>% 
+
+# load the res files
+res_file <- read.csv(file = grid_res_path,
+                     sep = "=",
+                     row.names = 1,
+                     header = FALSE) %>% 
   # Trim off white spaces form values
   rename(value = 1) %>% 
   mutate(value = str_trim(value, side = c("both")))
 
 # load the river grid
-river_grid = readRDS(here(temp_folder, "R",paste0("river_grid_", input_data["resolution",],
-                            "_", input_data["buffer",], ".rds")))
+river_grid = readRDS(here(temp_folder, "R",paste0("river_grid_", res_file["resolution",],
+                            "_", res_file["buffer",], ".rds")))
 
-# Location of rasters
-raster_folder = here(input_folder, 
-                       input_data["folder",],
-                       "flow")
+# load the flow list
+
+hab_file <- read.csv(file = hab_path,
+                     sep = "=",
+                     row.names = 1,
+                     header = FALSE) %>% 
+  # Trim off white spaces form values
+  rename(value = 1) %>% 
+  mutate(value = str_trim(value, side = c("both")))
 
 # read the flow values
-flows = as.numeric(strsplit(substr(input_data["flows",],
+flows = as.numeric(strsplit(substr(hab_file["flows",],
                            1,
-                           nchar(input_data["flows",])), ',')[[1]])
-
+                           nchar(hab_file["flows",])), ',')[[1]])
 
 ##### Main Part #####
 # Put all the rasters in a stack
@@ -78,8 +82,8 @@ sampeled_grid = sample_grid(stack = raster_stack_v,
 # write the data
 write.csv(sampeled_grid,
           here(temp_folder, "NetLogo", paste0("Depth_Velocity_Data_Input_",
-                 input_data["resolution",],
-                 "_", input_data["buffer",], ".csv")),
+                 res_file["resolution",],
+                 "_", res_file["buffer",], ".csv")),
           na = "0", 
           row.names = FALSE)
 

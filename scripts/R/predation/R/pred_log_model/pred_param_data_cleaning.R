@@ -191,3 +191,8 @@ combined_data <- combined_data %>%
     velocity = velocity_fps,
     depth = depth_ft
   )
+
+# rename sasq to pikeminnow for clarity
+
+combined_data <- combined_data %>% 
+  mutate(species = if_else(species == "sasq", "pikeminnow", as.character(species)))

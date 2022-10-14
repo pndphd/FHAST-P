@@ -27,9 +27,16 @@ param_table <- combined_data %>%
   tidyr::unnest(cols = c(params)) %>% 
   mutate(term = case_when(term == '(Intercept)' ~ 'intercept',
          TRUE ~ term))
+# make a wide version for easier handling in Netlogo
+param_table_netlogo <- param_table %>% 
+  pivot_wider(names_from = "term", values_from = "estimate")
 
 # 3. export data ----------------------------------------------------------
+filenames <- list("pred_log_params.csv", "pred_log_params_netlogo.csv")
+files <- list(param_table, param_table_netlogo)
 
-export_path <- here(pred_proj_path, "output", "pred_log_params.csv")
+export_folder <- here(pred_proj_path, "output")
 
-write_csv(param_table, export_path)
+filepaths <- map(filenames, ~ here(export_folder, .x))
+
+walk2(files,filepaths, ~write_csv(.x, .y))

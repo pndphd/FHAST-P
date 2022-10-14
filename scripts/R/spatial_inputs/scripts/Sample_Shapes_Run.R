@@ -10,33 +10,29 @@ source(here("scripts","R","main","load_libraries.R"))
 source(here("scripts","R","spatial_inputs","scripts","Sample_Shapes_Functions.R"))
 
 ##### Load Files #####
-# Read in the main input file file
-input_data <- read.csv(file = here(input_folder, input_file),
-                       sep = "=",
-                       row.names = 1,
-                       header = FALSE) %>% 
+
+# Get the res values
+# load the files
+res_file <- read.csv(file = grid_res_path,
+                     sep = "=",
+                     row.names = 1,
+                     header = FALSE) %>% 
   # Trim off white spaces form values
   rename(value = 1) %>% 
   mutate(value = str_trim(value, side = c("both")))
 
-# get the values
-resolution = as.numeric(input_data["resolution",])
-max_buffer = as.numeric(input_data["buffer",])
+# Get some variable values
+resolution = as.numeric(res_file["resolution",])
+max_buffer = as.numeric(res_file["buffer",])
 
 # load the river grid
-river_grid = readRDS(here(temp_folder, "R",paste0("river_grid_", input_data["resolution",],
-                            "_", input_data["buffer",], ".rds")))
+river_grid = readRDS(here(temp_folder, "R",paste0("river_grid_", resolution,
+                            "_", max_buffer, ".rds")))
 
 # Load the cover file
-cover_shape = st_read(here(input_folder, 
-                             input_data["folder",],
-                             "cover",
-                             input_data["cover file",]), quiet = TRUE) 
+cover_shape = st_read(cover_file, quiet = TRUE) 
 # Load the canopy cover zone file
-canopy_shape = st_read(here(input_folder, 
-                              input_data["folder",],
-                              "cover",
-                              input_data["canopy cover",]), quiet = TRUE) 
+canopy_shape = st_read(canopy_cover_file, quiet = TRUE) 
 # Load the vegetation bank file
 # Load the shade file
 shade_file = readRDS(here(temp_folder, "R", "shade_file.rds")) 

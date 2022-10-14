@@ -92,7 +92,7 @@ prep_data <- function(params) {
 
 # function to calculate gape-limited prey size for a given predator size (based on species)
 
-prey_conv <- function(a, B, pred_L) {
+prey_conv <- function(a = 4.64, B = 2.48e-6, pred_L) {
   exp(a + B * pred_L^2)
 }
 
@@ -132,5 +132,5 @@ save_all_outputs <- function(data) {
   species_names <- data %>%
     dplyr::distinct(species) %>%
     dplyr::pull(species)
-  walk(species_names, save_output, data = data)
+  purrr::walk(species_names, save_output, data = data)
 }

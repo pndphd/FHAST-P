@@ -140,12 +140,16 @@ make_grid = function(resolution = NULL,
                      cells = NULL,
                      buffers = NULL,
                      large_buffer = NULL){
+  
+   st_agr(cells) = "constant"
+  st_agr(buffers) = "constant"
+  
   grid = cells %>% 
     st_intersection(buffers) %>% 
     filter(st_is(., c("POLYGON","MULTIPOLYGON"))) %>% 
     # cast everyting as a multi polygon then as a polygon to break multi parts into single parts
     st_cast("MULTIPOLYGON") %>%
-    st_cast("POLYGON") %>% 
+    st_cast("POLYGON", warn = FALSE) %>% 
     # Calculate the area of each
     mutate(area = as.numeric(st_area(.))) %>% 
     #filter out very small cells  
