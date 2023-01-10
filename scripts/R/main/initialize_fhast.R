@@ -1,88 +1,107 @@
-library(here)
-library(dplyr)
-library(R.utils)
+########################################
+# Sets up the file structure for FHAST run
+########################################
 
-initialize_fhast <- function(folder){
+initialize_fhast <- function(file_path) {
+
   # set the main input folders
-  input_folder <<- here(folder)
-  
+  fhast_base_folder <<- dirname(file_path)
+  if (!dir.exists(fhast_base_folder)) {
+    # Directory doesn't exist
+    return()
+  }
+
+  # Create default file if it doesn't exist
+  if (!file.exists(file_path)) {
+    # File doesn't exist, make with default values
+    write_config_file(
+      file_path,
+      "base_inputs/fish_population.csv",
+      "base_inputs/enviromental_input_dist.txt",
+      "base_inputs/fish_params_input.csv",
+      "base_inputs/grid_folder/center_line.shp",
+      "base_inputs/grid_folder/top_point.shp",
+      "base_inputs/cover.shp",
+      "base_inputs/canopy.shp",
+      "base_inputs/habitat.txt",
+      "base_inputs/interactions.txt",
+      "base_inputs/predator_params_input.csv",
+      "base_inputs/flow_folder",
+      "base_inputs/grid_folder/aoi.shp"
+    )
+  }
+
+  config_file_path <<- file_path
+
   # Read in the main input file file to get cores used
-  input_data <- read.csv(file = here(input_folder, fhast_config_file),
-                         sep = "=",
-                         row.names = 1,
-                         header = FALSE) %>% 
-    # Trim off white spaces form values
-    rename(value = 1) %>% 
-    mutate(value = str_trim(value, side = c("both")))
-  
-  project_folder <<- ifelse(isAbsolutePath(input_data["folder",]),input_data["folder",], here(input_folder, input_data["folder",]))
-  
-  #get the name of the input file
-  fish_population_file <<- ifelse(isAbsolutePath(input_data["fish population file",]),input_data["fish population file",], 
-                                  here(input_folder,
-                                   input_data["folder",],
-                                   "fish",
-                                   input_data["fish population file",]))
-  
-  daily_file_name <<- ifelse(isAbsolutePath(input_data["daily file",]),input_data["daily file",], 
-                             here(input_folder, input_data["folder",], "daily", input_data["daily file",]))
-  
+  input_data <- load_text_file(file_path)
+
   # get the name of the input file
-  fish_parameters_file <<- ifelse(isAbsolutePath(input_data["fish parameters file",]),input_data["fish parameters file",], 
-                                  here(input_folder,
-                         input_data["folder",],
-                         "fish",
-                         input_data["fish parameters file",]))
-  
-  # get the paths for the 3 files 
-  grid_center_line <<- ifelse(isAbsolutePath(input_data["line",]),input_data["line",], 
-                              here(input_folder,
-                      input_data["folder",],
-                      "grid",
-                      input_data["line",]))
-  grid_top_marker <<- ifelse(isAbsolutePath(input_data["point",]), input_data["point",],
-                             here(input_folder,
-                     input_data["folder",],
-                     "grid",
-                     input_data["point",]))
-  grid_res_path <<- ifelse(isAbsolutePath(input_data["grid resolution file",]), input_data["grid resolution file",],
-                           here(input_folder,input_data["folder",], "grid",
-                   input_data["grid resolution file",]))
-  
-  cover_file <<- ifelse(isAbsolutePath(input_data["cover file",]), input_data["cover file",],
-                        here(input_folder, 
-       input_data["folder",],
-       "cover",
-       input_data["cover file",]))
-  
-  canopy_cover_file <<- ifelse(isAbsolutePath(input_data["canopy cover",]), input_data["canopy cover",],
-                               here(input_folder, 
-       input_data["folder",],
-       "cover",
-       input_data["canopy cover",]))
-  
-  hab_path <<- ifelse(isAbsolutePath(input_data["habitat parameters file",]), input_data["habitat parameters file",],
-                      here(input_folder,input_data["folder",], "habitat",
-                   input_data["habitat parameters file",]))
-  
+  fish_population_path <<- get_path(fhast_base_folder,
+                                   input_data["fish population", ])
+  daily_path <<- get_path(fhast_base_folder,
+                              input_data["daily conditions", ])
+  # get the name of the input file
+  fish_parameters_path <<- get_path(fhast_base_folder,
+                                   input_data["fish parameters", ])
+  # get the paths for the 3 files
+
+  grid_center_line_path <<- get_path(fhast_base_folder,
+                               input_data["grid centerline", ])
+  grid_top_marker_path <<- get_path(fhast_base_folder,
+                               input_data["grid top point", ])
+  cover_path <<- get_path(fhast_base_folder, input_data["cover", ])
+  canopy_path <<- get_path(fhast_base_folder, input_data["canopy", ])
+  hab_path <<- get_path(fhast_base_folder, input_data["habitat parameters", ])
+  interaction_path <<- get_path(fhast_base_folder,
+                               input_data["interaction parameters", ])
+  predator_path <<- get_path(fhast_base_folder,
+                            input_data["predator parameters", ])
+
+  # get to the aoi path
+  aoi_input <- input_data["aoi", ]
+  # Checking length is not sufficient (aoi_input can be an array containing a
+  # single empty string), so the nzchar check is also needed.
+  if (!is.na(aoi_input) && length(aoi_input) > 0 && nzchar(aoi_input)) {
+    aoi_path <<- get_path(fhast_base_folder, aoi_input)
+  } else {
+    aoi_path <<- NA
+  }
+
   # Location of rasters
-  raster_folder <<- ifelse(isAbsolutePath(input_data["raster folder",]),input_data["raster folder",], 
-                           here(input_folder, 
-                       input_data["folder",],
-                       "flow"))
-  
-  hydrology_folder <<- ifelse(isAbsolutePath(input_data["hydrology folder",]),input_data["hydrology folder",], 
-                              here(input_folder, input_data["folder",], "daily"))
-  
+  raster_folder <<- get_path(fhast_base_folder, input_data["raster folder", ])
+
   # Reset this stuff to be ready for a new run, the random seed in particular
   # should get set every time.
+ 
   # Load a color blind friendly pallet
-  cbPalette <<- c("#999999", "#0072B2", "#D55E00",
-                  "#F0E442", "#56B4E9", "#E69F00",
-                  "#0072B2", "#009E73", "#CC79A7")
-  
+  cbPalette <<- c(
+    "#999999", "#0072B2", "#D55E00",
+    "#F0E442", "#56B4E9", "#E69F00",
+    "#0072B2", "#009E73", "#CC79A7"
+  )
+
   # Set the random seed
   set.seed(6806665)
-  
-  # select <<- dplyr::select
 }
+
+write_config_file <- function(file_path, fish_pop, daily, fish_params, line,
+                            point, cover, canopy, hab_params,
+                            interaction_params, predator, raster, aoi) {
+  obj <- data.frame(
+    names = c(
+      "fish population", "daily conditions",
+      "fish parameters", "grid centerline", "grid top point",
+      "cover", "canopy", "habitat parameters", "interaction parameters",
+      "predator parameters", "raster folder", "aoi"
+    ),
+    paths = c(
+      fish_pop, daily, fish_params, line, point,
+      cover, canopy, hab_params, interaction_params, predator,
+      raster, aoi
+    )
+  )
+  save_text_file(file_path, obj)
+}
+
+

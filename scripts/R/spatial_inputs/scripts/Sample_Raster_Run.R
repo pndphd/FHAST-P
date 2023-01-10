@@ -1,107 +1,121 @@
-##### Description #####
+########################################
 # This file runs the functions to sample rasters onto a grid 
-
-##### Inputs #####
-# Load Libraries and some base parameters
-library(here)
-source(here("scripts","R","main","load_libraries.R"))
-
+########################################
+##### Function Check and Load #####
 # Make sure the area function is raster::area 
 area = raster::area
 
 # load the functions for this script
 source(here("scripts","R","spatial_inputs","scripts","Sample_Raster_Functions.R"))
 
+# inputs
+# temp_river_grid_path, raster_folder_files
+# outputs
+# temp_netlogo_depth_velocity_path
 
-# load the res files
-res_file <- read.csv(file = grid_res_path,
-                     sep = "=",
-                     row.names = 1,
-                     header = FALSE) %>% 
-  # Trim off white spaces form values
-  rename(value = 1) %>% 
-  mutate(value = str_trim(value, side = c("both")))
+temp_river_grid_path <- here(temp_folder, "R", 
+                         paste0("river_grid_",
+                                habitat_parm$resolution,
+                                "_",
+                                habitat_parm$buffer,
+                                ".rds"))
+temp_netlogo_depth_velocity_path <- here(temp_folder, "NetLogo",
+                                         paste0("Depth_Velocity_Data_Input_",
+                                           habitat_parm$resolution,
+                                           "_",
+                                           habitat_parm$buffer,
+                                           ".csv"))
 
-# load the river grid
-river_grid = readRDS(here(temp_folder, "R",paste0("river_grid_", res_file["resolution",],
-                            "_", res_file["buffer",], ".rds")))
+input_output_file_paths <- list.files(raster_folder, full.names=TRUE)
+input_output_file_paths <- append(input_output_file_paths, temp_river_grid_path)
+input_output_file_paths <- append(input_output_file_paths,
+                                  temp_netlogo_depth_velocity_path)
 
-# load the flow list
+hash_storage <-here(temp_folder, "sample_raster_run_hashes.txt")
 
-hab_file <- read.csv(file = hab_path,
-                     sep = "=",
-                     row.names = 1,
-                     header = FALSE) %>% 
-  # Trim off white spaces form values
-  rename(value = 1) %>% 
-  mutate(value = str_trim(value, side = c("both")))
+if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
 
-# read the flow values
-flows = as.numeric(strsplit(substr(hab_file["flows",],
-                           1,
-                           nchar(hab_file["flows",])), ',')[[1]])
+  ##### Load some files #####
+  # load the river grid
+  river_grid = readRDS(temp_river_grid_path)
 
-##### Main Part #####
-# Put all the rasters in a stack
+  ##### Load the flow list #####
+  # find all the depth and velocity rasters
+  d_files = list.files(raster_folder, "D\\d+.tif", full.names=TRUE)
+  v_files = list.files(raster_folder, "V\\d+.tif", full.names=TRUE)
+  # remove just the values from the file lists.
+  d_values = str_remove(d_files, raster_folder) %>% 
+    str_sub(start = 3) %>% 
+    str_extract(".*(?=\\.)") %>% 
+    as.numeric() %>% 
+    sort()
+  v_values = str_remove(v_files, raster_folder) %>% 
+    str_sub(start = 3) %>% 
+    str_extract(".*(?=\\.)") %>% 
+    as.numeric() %>% 
+    sort()
 
-raster_stack_d = load_rasters(type = "depth",
-                              folder = raster_folder,
-                              flows = flows)
-
-
-# Put all the rasters in a stack
-raster_stack_v = load_rasters(type = "velocity",
-                              folder = raster_folder,
-                              flows = flows) 
-
-# Check that all CRSs are the same
-v_stack = stack(map(flows,~raster(here(raster_folder, paste0("V", .x, ".tif")))))
-d_stack = stack(map(flows,~raster(here(raster_folder, paste0("D", .x, ".tif")))))
-if (!(compareCRS(v_stack, d_stack) &
-      compareCRS(river_grid, d_stack))) {
-  stop('The CRSs of some of your files are not the same.')
-}
-
-# Check if there ar more than 1 flow
-if (length(flows) < 2) {
-  stop('You must enter at least 2 flow values.')
-}
-
-# Sample the grid over the raster stack
-sampeled_grid_d = sample_grid(stack = raster_stack_d,
-                              grid = river_grid,
-                              type = "depth")
-
-# Sample the grid over the raster stack
-sampeled_grid = sample_grid(stack = raster_stack_v,
-                            grid = river_grid,
-                            type = "velocity") %>% 
-  left_join(sampeled_grid_d, by = c("lat_dist", "distance", "area"))
-
-##### Save Outputs #####
-# write the data
-write.csv(sampeled_grid,
-          here(temp_folder, "NetLogo", paste0("Depth_Velocity_Data_Input_",
-                 res_file["resolution",],
-                 "_", res_file["buffer",], ".csv")),
-          na = "0", 
-          row.names = FALSE)
-
-##### Make Plots #####
-if(0){
-  # Plot and example
-  stats_plot = sampeled_grid %>% 
-    mutate(depth = ifelse(is.nan(mean.D300),NA, mean.D300)) 
-  g = ggplot(stats_plot, aes(x = x , y = y , fill = depth )) +
-    theme_classic() +
-    geom_raster(na.rm = TRUE)
-  g
+  ##### Main Part #####
+  # Put all the rasters in a stack
+  raster_stack_d = load_rasters(type = "depth",
+                                folder = raster_folder,
+                                clip_mask = river_grid)
   
-  # Plot the bottom difference
-  stats_plot = sampeled_grid %>% 
-    mutate(difference = ifelse((bottom_area-area) == 0, NA, (bottom_area-area)))
-  g = ggplot(stats_plot, aes(x = x , y = y , fill = (difference) )) +
-    theme_classic() +
-    geom_raster(na.rm = T)
-  g
+  
+  # Put all the rasters in a stack
+  raster_stack_v = load_rasters(type = "velocity",
+                                folder = raster_folder,
+                                clip_mask = river_grid) 
+
+
+  # Check that teh values all match
+  if (!(all(d_values==v_values))) {
+    stop('The velocity and depth flow values do not mtach.')
+  }
+  # Check that all CRSs are the same
+  if (!(compareCRS(raster_stack_v, raster_stack_d) &
+        compareCRS(crs(river_grid), crs(raster_stack_d)))) {
+    stop('The CRSs of some of your files are not the same.')
+  }
+
+  # Sample the grid over the raster stack
+  sampeled_grid_d = sample_grid(stack = raster_stack_d,
+                                grid = river_grid,
+                                flows = d_values,
+                                type = "depth")
+  
+  # Sample the grid over the raster stack
+  sampeled_grid = sample_grid(stack = raster_stack_v,
+                              grid = river_grid,
+                              flows = d_values,
+                              type = "velocity") %>% 
+    left_join(sampeled_grid_d, by = c("lat_dist", "distance", "area"))
+
+  ##### Save Outputs #####
+  # write the data
+  write.csv(sampeled_grid,
+            temp_netlogo_depth_velocity_path,
+            na = "0", 
+            row.names = FALSE)
+  
+  ##### Make Plots #####
+  if(0){
+    # Plot and example
+    stats_plot = sampeled_grid %>% 
+      mutate(depth = ifelse(is.nan(mean.D300),NA, mean.D300)) 
+    g = ggplot(stats_plot, aes(x = x , y = y , fill = depth )) +
+      theme_classic() +
+      geom_raster(na.rm = TRUE)
+    g
+    
+    # Plot the bottom difference
+    stats_plot = sampeled_grid %>% 
+      mutate(difference = ifelse((bottom_area-area) == 0, NA, (bottom_area-area)))
+    g = ggplot(stats_plot, aes(x = x , y = y , fill = (difference) )) +
+      theme_classic() +
+      geom_raster(na.rm = T)
+    g
+  }
+  
+  store_last_run_hashes(hash_storage, input_output_file_paths)
 }

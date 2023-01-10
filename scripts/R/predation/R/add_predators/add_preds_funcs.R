@@ -1,5 +1,5 @@
 # Load Libraries and some base parameters
-source("./scripts/R/main/load_libraries.R")
+source(here("scripts", "R", "main", "load_libraries.R"))
 
 # 1. functions ---------------------------------------------------------------
 
@@ -23,11 +23,11 @@ widen_model_params <- function(model_params) {
 # selects the intercept value from the widened param data
 get_intercept <- function(params_wider) {
   params_wider %>%
-    pull(intercept)
+    select(starts_with("intercept")) %>% 
+    pull(1)
 }
-
 # selects only the parameter data from the widened param value
-get_param_data <- function(params_wider, vals_to_drop = c(intercept, species)) {
+get_param_data <- function(params_wider, vals_to_drop = c(contains("intercept"), species)) {
   params_wider %>%
     select(-{{ vals_to_drop }})
 }
@@ -41,14 +41,18 @@ get_param_vector <- function(param_data) {
 
 # uses the intercept and param vector to calculate all predicted habitat values for a given predator species
 make_predictions <- function(df, model_params, species_name) {
+ # browser()
   subset_model_params <- subset_params(species_name, model_params)
   model_params_wide <- widen_model_params(subset_model_params)
   intercept <- get_intercept(model_params_wide)
   param_data <- get_param_data(model_params_wide) %>%
     get_param_vector()
+  
+  # make sure columns are in the right order for matrix multiplication
+  df_reorg <- df %>% dplyr::select(all_of(colnames(get_param_data(model_params_wide))))
 
   # turn tibble into matrix to perform linear algebra
-  t(t(df) * param_data) %>%
+  base::t(base::t(df_reorg) * param_data) %>%
     as_tibble() %>% # back to tibble to use the mutate function
     mutate(
       intercept = intercept,
@@ -59,20 +63,8 @@ make_predictions <- function(df, model_params, species_name) {
     rename_pred_cols(species_name)
 }
 
-# 1b. adding predators to cells -------------------------------------------
 
-# determines number of predators per cell based on predicted habitat rating and
-# the number of predators in the system
-# calc_pred_count <- function(df, model_params, species_name, reach_preds) {
-#   make_predictions(df, model_params, species_name) %>%
-#     mutate(
-#       scaled = hab_rating / sum(hab_rating),
-#       pred_prob = scaled * reach_preds,
-#       pred = rbinom(n = nrow(.), size = 1, prob = pred_prob)
-#     ) %>%
-#     select(hab_rating, pred) %>%
-#     rename_pred_cols(species_name)
-# }
+# 1b. adding predators to cells -------------------------------------------
 
 calc_pred_count <- function(df, reach_preds) {
   df %>%
@@ -82,29 +74,15 @@ calc_pred_count <- function(df, reach_preds) {
         .fns = ~ if_else(.x >= 0.5, 1, 0) * .x,
         .names = "{.col}_pred"
       ),
-      # across(
-      #   .cols = ends_with("hab_rating_pred"),
-      #   ~ .x / max(.x)
-      # ),
       across(
         .cols = ends_with("hab_rating_pred"),
-        .fns = ~ round((.x * wetted_area) / sum(.x * wetted_area) * reach_preds)
+        .fns = ~ replace_na(round((.x * wetted_area) / sum(.x * wetted_area) * reach_preds), 0)
       )
     ) %>%
     rename_with(
       .fn = ~ str_remove(.x, "_hab_rating_pred"),
       .cols = ends_with("_hab_rating_pred")
     )
-  # commented-out code below for a slightly different approach to adding predators
-  # mutate(across(.cols = ends_with("hab_rating"),
-  #             .fns = ~ rbinom(n = length(.x), size = 1, prob = .x) * .x,
-  #             .names = "{.col}_pred"),
-  #      across(.cols = ends_with("hab_rating_pred"),
-  #             .fns = ~ round(.x / sum(.x) * reach_preds)
-  #      )) %>%
-  # select(ends_with("_hab_rating_pred")) %>%
-  # rename_with(.fn = ~str_remove(.x, "_hab_rating_pred"),
-  #             .cols = ends_with("_hab_rating_pred"))
 }
 
 # relabels cols with number of preds and hab rating with the predator species name
@@ -127,7 +105,7 @@ get_list_of_species <- function(model_params) {
 select_hab_vars <- function(model_params) {
   model_params %>%
     distinct(term) %>%
-    filter((!term == "intercept")) %>%
+    filter(!grepl("intercept", term)) %>%
     pull(term)
 }
 
@@ -144,8 +122,7 @@ calc_all_pred_data <- function(df, species_list, model_params, script_params) {
   total_wetted_area <- calc_total_wetted_area(df)
   reach_preds <- get_total_reach_preds(
     total_wetted_area,
-    pred_num = script_params$preds_per_hectare,
-    conv = script_params$conv
+    pred_num = script_params$pred_per_area
   )
 
   # calculate habitat ratings and predator counts
@@ -168,10 +145,9 @@ calc_total_wetted_area <- function(df) {
 }
 
 # calculates total number of predators for the entire study reach
-# based on the number of preds per unit area, the cell size, the number of cells,
-# and a conversion factor; e.g. to convert preds/ha to preds/m2
-get_total_reach_preds <- function(wetted_area, pred_num, conv) {
-  round(pred_num * wetted_area / conv)
+# based on the number of preds per unit area, the cell size, the number of cells
+get_total_reach_preds <- function(wetted_area, pred_num) {
+  round(pred_num * wetted_area)
 }
 
 # nests the input dataframe by time (e.g., per day) and calculates the predator predicitons
@@ -189,19 +165,7 @@ calc_preds_per_time <- function(df, time_col, model_params, script_params) {
       script_params = script_params,
       .options = furrr_options(seed = TRUE)
     )) %>%
-    # preds = future_map2(
-    #   .x = data,
-    #   .y = hab_rating,
-    #   .f = calc_pred_count,
-    #   script_params = script_params,
-    #   .options = furrr_options(seed = TRUE)
-    # )) %>%
-    tidyr::unnest(everything()) # %>%
-  # drop_when_depth_zero(model_params) %>%
-  #   add_pred_totals(model_params) %>%
-  #   add_pred_areas(script_params, model_params, temp_params)
-  # df %>%
-  #   full_join(preds)
+    tidyr::unnest(everything()) 
 }
 
 calc_pred_length <- function(prey_length, a = 4.64e-0, B = 2.48e-6) {
@@ -213,15 +177,11 @@ calc_prey_length <- function(pred_length, a = 4.64, B = 2.48e-6){
   }
 
 get_pred_length <- function(n, meanlog, sdlog) {
-#   lengths <- pred_length_data %>%
-#     pull({{ pred_species }})
-# 
-#   sample(x = lengths, size = num_preds, replace = TRUE)
-
   rlnorm(n, meanlog, sdlog)
 }
 
 get_all_pred_lengths <- function(df, pred_length_data) {
+ # browser()
   all_lengths <- df %>%
     count(species) %>%
     left_join(pred_length_data, by = "species") %>% 
@@ -238,6 +198,7 @@ get_all_pred_lengths <- function(df, pred_length_data) {
 
 
 adjust_preds_for_length <- function(df, species_list, pred_length_data) {
+  #browser()
   new_preds <- df %>%
    # drop_na() %>%
     pivot_longer(all_of(species_list), names_to = "species") %>%
@@ -268,8 +229,7 @@ add_pred_totals <- function(df, species_list, model_params) {
   df %>%
     mutate(
       total_preds = rowSums(across(all_of(species_list))),
-      total_pred_hab_rating = rowSums(across(ends_with("hab_rating"))),
-      # total_pred_hab_rating = total_pred_hab_rating / max(total_pred_hab_rating)
+      total_pred_hab_rating = rowSums(across(ends_with("hab_rating")))
     )
 }
 
@@ -302,6 +262,7 @@ calc_predator_area <- function(n_preds, reaction_distance, cell_area, wetted_fra
 
 # adds predator area values to all cells
 add_pred_areas <- function(df, species_list, script_params, model_params, temp_params) {
+  #browser()
   df %>%
     calc_all_temp_effects(temp_params) %>%
     mutate(across(c(ends_with(species_list)),
@@ -320,9 +281,10 @@ add_pred_areas <- function(df, species_list, script_params, model_params, temp_p
 # 1c. temperature effects -------------------------------------------------
 
 # gets the temperature column name from the input dataset
-get_temp_col_name <- function(df) {
+get_col_name <- function(df, term) {
+  
   df %>%
-    select(contains("temp")) %>%
+    select(contains(term)) %>%
     colnames()
 }
 
@@ -333,65 +295,16 @@ calc_temp_effect <- function(temp, param, intercept) {
 
 # calculates all temperature effects for the whole input dataframe
 calc_all_temp_effects <- function(df, temp_params) {
+  #browser()
   intercept <- get_intercept(temp_params)
-  param <- get_param_data(temp_params, vals_to_drop = intercept) %>%
+
+  param <- get_param_data(temp_params, vals_to_drop = contains("intercept")) %>%
     get_param_vector()
-  temp_col <- get_temp_col_name(df)
-  temp_col <- ensym(temp_col)
+  # temp_col <- get_col_name(df, term = "temp")
+  # temp_col <- ensym(temp_col)
   df %>%
-    group_nest(!!temp_col) %>%
-    mutate(temp_effect = calc_temp_effect(!!temp_col, param, intercept)) %>%
+    group_nest(temp) %>%
+    mutate(temp_effect = calc_temp_effect(temp, param, intercept)) %>%
     unnest(data)
 }
 
-# for testing ----------------------------------------------------------
-
-# # inputs for development
-#
-# script_params <- list(
-#   resolution = 20,
-#   buffer = 500,
-#   preds_per_hectare = 30,
-#   conv = 1e5,
-#   reaction_distance = 1
-# )
-#
-# # predator glm parameters
-# pred_proj_path <- here::here("scripts", "R", "predation")
-# model_params <- read_csv(here(pred_proj_path, "output", "pred_log_params.csv"))
-# temp_data <- read_csv(here(pred_proj_path, "output", "pred_temperature_effects.csv"))
-# temp_params <- read_csv(here(pred_proj_path, "output", "pred_temperature_params.csv"))
-#
-#
-# make_tbl_w_days <- function(day, n) {
-#   tibble(
-#     day = day,
-#     shade = sample(c(0, 1), size = n, replace = TRUE),
-#     vegetation = sample(seq(0, 1, 0.0001), size = n, replace = TRUE),
-#     cover = sample(seq(0, 1, 0.0001), size = n, replace = TRUE),
-#     depth = sample(seq(0, 5, 0.0001), size = n, replace = TRUE),
-#     velocity = sample(seq(0, 2, 0.0001), size = n, replace = TRUE),
-#     substrate = sample(c(0, 1), size = n, replace = TRUE),
-#     not_habitat_stuff = "test"
-#   ) %>%
-#     group_nest(day) %>%
-#     mutate(temp = sample(seq(10,25,0.0001), size = nrow(.), replace = TRUE)) %>%
-#     unnest(data)
-# }
-#
-# #
-# days <- 1:5
-#
-# n <- 1e3
-#
-# test_csv <- map_dfr(days, make_tbl_w_days, n = n)
-#
-#
-#
-#
-# # parallel
-# tic()
-# d <- calc_preds_per_time(test_csv, day, model_params, script_params, temp_params)
-# toc()
-#
-#

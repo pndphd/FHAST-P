@@ -64,7 +64,6 @@ sample_all_shapes <- function(grid = NULL,
   return(output)
 }
 
-
 ##### sampled_to_csv #####
 sampled_to_csv <- function(sampled_shapes = NULL) {
   shapes_csv <- sampled_shapes %>%

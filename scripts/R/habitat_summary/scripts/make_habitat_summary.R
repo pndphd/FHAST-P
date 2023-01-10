@@ -1,175 +1,72 @@
-##### Description #####
-# This is the main folder to summarize habitat over the time window
-# libraries
+########################################
+# This is the main script to summarize habitat over the time window
+########################################
 
-##### Load Libraries and functions #####
-# Load Libraries and some base parameters
-# Load Libraries and some base parameters
-# source(here("scripts","R","main","load_libraries.R"))
-# source(here("scripts","R","main","default_initialization.R"))
-library(here)
-source(here("scripts", "R", "main", "load_libraries.R"))
-
-# Load the functions
-source(here("scripts", "R", "habitat_summary", "scripts", "functions_habitat_summary.R"))
-
-# Load the pred risk functions
-source(file = here("scripts", "R", "predation", "R", "add_predators", "add_preds_funcs.R"))
+##### Load Functions #####
+source(here("scripts", "R", "habitat_summary", "scripts",
+            "functions_habitat_summary.R"))
+source(here("scripts", "R", "predation", "R", "add_predators",
+            "add_preds_funcs.R"))
+source(here("scripts", "R", "habitat_summary", "scripts",
+            "make_cell_data.R"))
+source(here("scripts", "R", "habitat_summary", "scripts",
+            "get_daily_v_and_d.R"))
+source(here("scripts", "R", "habitat_summary", "scripts",
+            "calculate_predators.R"))
+source(here("scripts", "R", "habitat_summary", "scripts",
+            "calculate_fish_summary.R"))
+source(here("scripts", "R", "habitat_summary", "scripts",
+            "make_time_series_data.R"))
 
 ##### Load Files #####
-# load the basic input file
-## This is still here for now because of the predation parameters directly loaded from input_data
-input_data <- read.csv(
-  file = here(input_folder, fhast_config_file),
-  sep = "=",
-  row.names = 1,
-  header = FALSE
-) %>%
-  # Trim off white spaces form values
-  rename(value = 1) %>%
-  mutate(value = str_trim(value, side = c("both")))
+# The name for the daily input file
+daily_input_path <- here("temporary", "NetLogo", "daily_input_file.csv")
 
-# load the res files
-res_file <- read.csv(
-  file = grid_res_path,
-  sep = "=",
-  row.names = 1,
-  header = FALSE
-) %>%
-  # Trim off white spaces form values
-  rename(value = 1) %>%
-  mutate(value = str_trim(value, side = c("both")))
+# Percent Cover conversion model
+pct_cover_name <- here(temp_folder, "NetLogo", "pct_cov_convers_model.rds")
 
-# Load the habitat file
-hab_file <- read.csv(
-  file = hab_path,
-  sep = "=",
-  row.names = 1,
-  header = FALSE
-) %>%
-  # Trim off white spaces form values
-  rename(value = 1) %>%
-  mutate(value = str_trim(value, side = c("both")))
+# distance to cover model
+dis_to_cover_name <- here(temp_folder, "NetLogo", "dis_to_cov_model.rds")
 
-# Load the daily input file
-daily_file_name <- here("temporary", "NetLogo", "daily_input_file.csv")
+# The name of the raster file data
+raster_file_name <- here("temporary", "NetLogo", paste0(
+  "Depth_Velocity_Data_Input_",
+  habitat_parm$resolution, "_",
+  habitat_parm$buffer, ".csv"))
 
-# Load the fish parameter lists
-fish_parameter_list_path <- here("temporary", "NetLogo", "fish_params_list.rds")
+# The name for the shape file data
+shape_file_name <- here("temporary", "NetLogo", paste0(
+  "Shape_Data_Input_",
+  habitat_parm$resolution, "_",
+  habitat_parm$buffer, ".csv"))
 
-# Load predator glm parameters
-pred_proj_path <- here::here("scripts", "R", "predation")
-
-# Parameters for the logestic model
-model_params_name <- here(pred_proj_path, "output", "pred_log_params.csv")
-
-# Parameters for the temperature
-temp_params_name <- here(pred_proj_path, "output", "pred_temperature_params.csv")
-# csv file of predator lengths
-pred_length_name <- here(pred_proj_path, "output", "pred_length_dist_params.csv")
-
-pct_cover_name <- here(pred_proj_path, "output", "pct_cov_convers_model.RDS")
-
-dis_to_cover_name <- here(pred_proj_path, "output", "dis_to_cov_model.RDS")
-
-# place relevant input parameters into a list
-script_params <- list(
-  velocity_cutoff = hab_file["velocity cutoff", ],
-  depth_cutoff = hab_file["depth cutoff", ],
-  resolution = res_file["resolution", ],
-  buffer = res_file["buffer", ],
-  preds_per_hectare = input_data["predator density", ],
-  conv = input_data["conversion", ],
-  reaction_distance = input_data["reaction distance", ]
-) %>% map(as.numeric) # make sure values are numeric rather than strings
-
-# Load data files (these require the resolution to be loaded first)
-raster_file_name <- here(
-  "temporary", "NetLogo",
-  paste0(
-    "Depth_Velocity_Data_Input_",
-    script_params$resolution, "_",
-    script_params$buffer, ".csv"
-  )
-)
-
-shape_file_name <- here(
-  "temporary", "NetLogo",
-  paste0(
-    "Shape_Data_Input_",
-    script_params$resolution, "_",
-    script_params$buffer, ".csv"
-  )
-)
-
+# The grid file (for georeferencing)
 grid_file_name <- here("temporary", "R", paste0(
   "river_grid_",
-  script_params$resolution, "_", script_params$buffer, ".rds"
-))
+  habitat_parm$resolution, "_",
+  habitat_parm$buffer, ".rds"))
 
-# Check to see if the temporaty files exists
-if (0 < sum(!file.exists(
-  shape_file_name,
-  raster_file_name,
-  daily_file_name,
-  grid_file_name,
-  model_params_name,
-  temp_params_name
-))) {
-  stop("An input file does not exist.")
-}
-
-# Load the temporaty files data files
+# Load the files named above
 shape_file <- read.csv(shape_file_name)
 raster_file <- read.csv(raster_file_name)
-daily_file <- read.csv(daily_file_name) %>%
+daily_file <- read.csv(daily_input_path) %>%
   mutate(date = mdy(date))
 grid_file <- readRDS(grid_file_name) %>%
   select(distance, lat_dist)
-model_params <- read_csv(model_params_name)
-# Parameters for the temperature
-temp_params <- read_csv(temp_params_name)
-fish_parameter_list <- readRDS(fish_parameter_list_path)
-pred_length_data <- read_csv(pred_length_name)
-dis_to_cover_model <- readRDS(dis_to_cover_name)
-pct_cover_model <- readRDS(pct_cover_name)
+dis_to_cover_model <- read_rds(dis_to_cover_name)
+pct_cover_model <- read_rds(pct_cover_name)
 
 ##### Pre Processing #####
-# Join the shape and raster files
-# (both are just csv files made from shape and raster files)
-habitat_temp <- shape_file %>%
-  select(-area) %>%
-  left_join(raster_file, by = c("distance", "lat_dist"))
-
-# make the data just one depth, vel and wetted area per flow per cell
-input_variables <- c("mean.D", "mean.V", "wetd.")
-output_variables <- c("depth", "velocity", "wetted_fraction")
-
-spread_data <- future_map2(
-  input_variables, output_variables,
-  ~ spread_flows(habitat_temp, .x, .y)
-) %>%
-  reduce(left_join, by = c("lat_dist", "distance", "flow"))
-
-habitat <- habitat_temp %>%
-  select(
-    -starts_with("mean.D"),
-    -starts_with("mean.V"),
-    -starts_with("wetd.D")
-  ) %>%
-  right_join(spread_data, by = c("lat_dist", "distance"))
-
-# remove some unused things
-rm(spread_data, habitat_temp)
+# Make a data frame with each cell at each flow value
+habitat <- make_cell_data()
 
 # get all the flows for which we have a raster
 flows <- as.numeric(unique(habitat$flow))
 
 # get all the fish combos
 fish_combos <- expand.grid(
-  species = map(fish_parameter_list, ~ return(.x[1, ])),
-  life_stage = c("juvenile", "adult")
-)
+  species = fish_parm$specie,
+  life_stage = c("juvenile", "adult"))
 
 # get the total number or days
 final_day <- max(daily_file$day)
@@ -178,6 +75,7 @@ final_day <- max(daily_file$day)
 
 ##### Run the time series #####
 # Make the time series data
+
 time_series_data <- daily_file %>%
   split(seq(nrow(.))) %>%
   reduce(~ make_time_series_data(
@@ -185,17 +83,16 @@ time_series_data <- daily_file %>%
     current = .y,
     habitat_data = habitat,
     flows_list = flows,
-    fish_params = fish_parameter_list,
+    fish_params_in = fish_parm,
     sig_figs = 10,
     max_day = final_day,
-    model_params = model_params,
-    script_params = script_params,
-    temp_params = temp_params,
+    model_params = pred_model_params,
+    script_params = habitat_parm,
+    temp_params = pred_temp_params,
     pred_length_data = pred_length_data,
-    pct_cover_model = pct_cover_model
-  ),
-  .init = 0
-  )
+    pct_cover_model = pct_cover_model,
+    gape_params = gape_params),
+  .init = 0)
 
 # Divide out the outputs
 # First Habitat map
@@ -230,32 +127,45 @@ daily_wetted_area <- multiply_and_sum(
 )
 
 shallow_area <- time_series_data$map_habitat %>%
-  filter(depth < script_params$depth_cutoff) %>%
-  sum_daily_data(
-    col_1 = area,
-    new_col = shallow_area
-  )
+  filter(depth < habitat_parm$dep_cutoff) %>%
+  sum_daily_data(col_1 = area,
+                 new_col = shallow_area)
 
 ##### Summary Stats #####
-
+# A set of summary stats for the habitat
 summary_stats <- data.frame(cover_area_m2 = sum((mean_map$veg + mean_map$wood) *
   mean_map$area * mean_map$wetted_fraction)) %>%
   mutate(
-    area_below_v_cutoff_m2 = sum(mean_map$below_v_cutoff *
+    near_shore_cover_area_m2 = sum(mean_map$area *
+                                     mean_map$wetted_fraction *
+                                     mean_map$near_shore *
+                                     (mean_map$veg + mean_map$wood)),
+    near_shore_cover_area_bellow_v_m2 = sum(mean_map$area *
+                                     mean_map$wetted_fraction *
+                                       mean_map$below_v_cutoff*
+                                     mean_map$near_shore *
+                                     (mean_map$veg + mean_map$wood)),
+    percent_area_below_v_cutoff = sum(mean_map$below_v_cutoff *
       mean_map$area * mean_map$wetted_fraction) /
-      sum(mean_map$area * mean_map$wetted_fraction),
-    area_below_d_cutoff_m2 = sum(mean_map$below_d_cutoff *
+      sum(mean_map$area * mean_map$wetted_fraction)*100,
+    percent_area_below_d_cutoff = sum(mean_map$below_d_cutoff *
       mean_map$area * mean_map$wetted_fraction) /
-      sum(mean_map$area * mean_map$wetted_fraction),
-    near_shore_area_m2 = sum(mean_map$area * mean_map$wetted_fraction *
-      mean_map$near_shore),
-    c_b_c_fraction = sum((mean_map$veg + mean_map$wood) *
+      sum(mean_map$area * mean_map$wetted_fraction)*100,
+    percent_near_shore_area = sum(mean_map$area * mean_map$wetted_fraction *
+      mean_map$near_shore)/
+      sum(mean_map$area * mean_map$wetted_fraction)*100,
+    CBC_percent = sum((mean_map$veg + mean_map$wood) *
       mean_map$area * mean_map$wetted_fraction *
       mean_map$below_v_cutoff * mean_map$below_d_cutoff) /
-      sum(mean_map$area * mean_map$wetted_fraction)
+      sum(mean_map$area * mean_map$wetted_fraction)*100,
+    average_cover_percent = sum((mean_map$veg + mean_map$wood) *
+                                  mean_map$area * mean_map$wetted_fraction) /
+      sum(mean_map$area * mean_map$wetted_fraction)*100
   ) %>%
   pivot_longer(cols = everything(), names_to = "Item", values_to = "Value") %>% 
-  mutate(Item = str_replace_all(Item, "_", " "))
+  mutate(Item = str_replace_all(Item, "_", " "),
+         Item = str_replace_all(Item, "m2", "(m\u00B2)"),
+         Value = round(Value,2))
 
 # Currently this function is here for ease of editing
 calc_fish_summary_stats <- function(df) {
@@ -263,10 +173,11 @@ calc_fish_summary_stats <- function(df) {
     mutate(
       species = str_replace_all(species, "_", " "),
       life_stage = df$life_stage[1],
-      met_j_per_day = mean(df$fish_met_j_per_day, na.rm = TRUE)
+      met_j_per_day = round(mean(df$fish_met_j_per_day, na.rm = TRUE),2)
     )
 }
 
+# A set of summary stats for the fish
 fish_summary_stats <- mean_fish_maps %>%
   map_df(~ calc_fish_summary_stats(.x))
 
@@ -280,8 +191,7 @@ cover_scatter_plot <- make_scatter_plot(
   x_lab = "Flow (cms)",
   y_lab = expression(Cover ~ Area ~ (m^2))
 )
-x11()
-print(cover_scatter_plot)
+display_plot(cover_scatter_plot)
 
 ##### Heat maps #####
 # 2D area cover heat map
@@ -293,31 +203,31 @@ heat_map_plot <- make_heat_map(data_frame = mean_map,
                                y_lab = "Velcoity (m/s)",
                                z_lab = expression(Area ~ (m^2)),
                                resolution = 100)
-x11()
-print(heat_map_plot)
+display_plot(heat_map_plot)
 
 ##### Maps #####
+# Set the plot widths
+plot_widths = 5
+
 # wetted map
 cover_map <- make_map(
   data_frame = mean_map,
   fill = veg + wood,
   scale_name = "Cover\nFraction"
 )
-x11()
-print(cover_map)
+display_plot(cover_map)
 
 # Cutoff map
 cutoff_map <- make_map(
   data_frame = mean_map %>%
     filter(
-      depth < script_params$depth_cutoff,
-      velocity < script_params$velocity_cutoff
+      depth < habitat_parm$dep_cutoff,
+      velocity < habitat_parm$vel_cutoff
     ),
   fill = (wood + veg),
   scale_name = "Cover\nFraction"
 )
-x11()
-print(cutoff_map)
+display_plot(cutoff_map)
 
 # predator maps
 pred_map <- make_map(
@@ -325,8 +235,7 @@ pred_map <- make_map(
   fill = pikeminnow_hab_rating,
   scale_name = "Predator\nHabitat Rating"
 )
-x11()
-print(pred_map)
+display_plot(pred_map)
 
 # Slant map
 slant_map <- make_map(
@@ -334,8 +243,7 @@ slant_map <- make_map(
   fill = mean.correction_factor,
   scale_name = "Area Correction\nFactor"
 )
-x11(height = 10, width = 20)
-print(slant_map)
+display_plot(slant_map, 10, 20)
 
 # cover facte map
 d_cutoff_label <- c("1" = "Below D", "0" = "Above D")
@@ -347,8 +255,18 @@ cover_facet_map  <- make_map(
 ) + facet_grid(below_d_cutoff ~ below_v_cutoff,
                labeller = labeller(below_d_cutoff = d_cutoff_label,
                                    below_v_cutoff = v_cutoff_label))
-x11(height = 10, width = 20)
-print(cover_facet_map)
+display_plot(cover_facet_map, 10, 20)
+
+# cover facet histogram
+cover_facet_hist  <- make_hist(
+  data_frame = mean_map,
+  bins = pct_cover,
+  x_label = "Percent Cover",
+  weights = wetted_area) +
+  facet_grid(below_d_cutoff ~ below_v_cutoff,
+             labeller = labeller(below_d_cutoff = d_cutoff_label,
+                                   below_v_cutoff = v_cutoff_label))
+display_plot(cover_facet_hist, 10, 20)
 
 # Metabolic map
 metabolic_map <- mean_fish_maps %>% map(~make_map(
@@ -356,50 +274,79 @@ metabolic_map <- mean_fish_maps %>% map(~make_map(
   fill = fish_met_j_per_day,
   scale_name = "Metabolic Rate\n(j/day)",
   title = str_replace_all(paste0(.x$species[1],"-",.x$life_stage[1]),
-                          "_", " ")
-)) %>% 
-  wrap_plots(ncol = 1)
-x11(height = 15, width = 15)
-print(metabolic_map)
+                          "_", " "))) %T>% 
+  assign(x = "metabolic_map_length", value = length(.), envir = .GlobalEnv)%>% 
+  wrap_plots(ncol = 1, widths = plot_widths,
+             heights = metabolic_map_length * plot_widths)
+display_plot(metabolic_map, 15, 15)
+
+# Net energy map
+net_energy_map <- mean_fish_maps %>% map(~make_map(
+  data_frame = .x %>% mutate(net_energy = ifelse(net_energy >=0, net_energy, 0)),
+  fill = net_energy,
+  scale_name = "Net Energy\n(j/day)",
+  title = str_replace_all(paste0(.x$species[1],"-",.x$life_stage[1]),
+                          "_", " "))) %T>% 
+  assign(x = "net_energy_map_length", value = length(.), envir = .GlobalEnv)%>% 
+  wrap_plots(ncol = 1, widths = plot_widths,
+             heights = net_energy_map_length * plot_widths)
+display_plot(net_energy_map, 15, 15)
 
 # Predation map
-predation_map <- mean_fish_maps %>% map(~make_map(
+predation_map <- mean_fish_maps[c(which(fish_summary_stats$life_stage == "juvenile"))] %>%
+  map(~make_map(
   data_frame = .x,
   fill = pred_mort_risk,
   scale_name = "Mortality\nRisk",
   title = str_replace_all(paste0(.x$species[1],"-",.x$life_stage[1]),
-                          "_", " ")
-)) %>% 
-  wrap_plots(ncol = 1)
-x11(height = 15, width = 15)
-print(predation_map)
+                          "_", " "))) %T>% 
+  assign(x = "predation_map_length", value = length(.), envir = .GlobalEnv) %>% 
+  wrap_plots(ncol = 1, widths = plot_widths,
+             heights = predation_map_length * plot_widths)
+display_plot(predation_map, 15, 15)
 
 ##### Save Outputs #####
 
 # List of objects and names for the save files 
-object_list = list(summary_stats,
-                   fish_summary_stats,
-                   cover_scatter_plot,
-                   cover_map,
-                   cover_facet_map,
-                   pred_map,
-                   cutoff_map,
-                   heat_map_plot,
-                   metabolic_map,
-                   predation_map)
-name_list = list("summary_stats_table.rds",
-              "summary_fish_stats_table.rds",
-              "cover_scatter_plot.rds",
-              "cover_map.rds",
-              "cover_facet_map.rds",
-              "predator_map.rds",
-              "cutoff_map.rds",
-              "depth_velocity_heatmap.rds",
-              "metabolic_map.rds",
-              "predation_map.rds")
+plot_list = list(cover_scatter_plot,
+                 cover_map,
+                 cover_facet_map,
+                 cover_facet_hist,
+                 pred_map,
+                 cutoff_map,
+                 heat_map_plot,
+                 metabolic_map,
+                 predation_map,
+                 net_energy_map)
+data_list = list(summary_stats,
+                 fish_summary_stats)
+plot_name_list = list("cover_scatter_plot",
+                      "cover_map",
+                      "cover_facet_map",
+                      "cover_facet_hist",
+                      "predator_map",
+                      "cutoff_map",
+                      "depth_velocity_heatmap",
+                      "metabolic_map",
+                      "predation_map",
+                      "net_energy_map")
+data_name_list = list("summary_stats_table",
+                      "summary_fish_stats_table")
+object_list = c(data_list, plot_list)
+object_name_list = c(data_name_list, plot_name_list)
+plot_dimeshions = list(1.2,1.2,1.2,1.2,1.2,1.2,1.2,
+                       metabolic_map_length+1,
+                       predation_map_length+1,
+                       net_energy_map_length+1)
 
 # Save all the outputs 
-walk2(object_list, name_list, ~saveRDS(
+walk2(object_list, object_name_list, ~saveRDS(
   object = .x,
-  file = here("temporary", "R", .y)))
+  file = here("temporary", "R", paste0(.y, ".rds"))))
+pwalk(list(plot_list, plot_name_list, plot_dimeshions), ~ggsave(
+  height = ..3*5,
+  plot = ..1,
+  filename = here("temporary", "R", paste0(..2, ".png")),
+  limitsize = FALSE,
+  device = "png"))
 

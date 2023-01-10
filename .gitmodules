@@ -1,0 +1,3 @@
+[submodule "FHAST_App"]
+	path = FHAST_App
+	url = https://github.com/ChrisPJohn/FHAST_App.git

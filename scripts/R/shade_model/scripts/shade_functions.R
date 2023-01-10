@@ -90,7 +90,7 @@ calc_photo_period = function(shape_file_in,
                                proj4string=CRS(st_crs(location)$proj4string),
                                direction="sunrise",
                                POSIXct.out=TRUE)$day_frac,
-           photo_period = sun_set - sun_rise) %>% 
+           photoperiod = sun_set - sun_rise) %>% 
     select(-photo_time, -sun_rise, - sun_set)
 
 }

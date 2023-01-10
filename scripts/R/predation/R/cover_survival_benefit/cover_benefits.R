@@ -3,6 +3,7 @@
 
 library(tidyverse)
 library(here)
+library(broom)
 
 options(readr.show_col_types = FALSE) # turns off notifications when reading csv files
 
@@ -20,6 +21,7 @@ cell_size_m <- 1
 
 # 3. analysis -------------------------------------------------------------
 
+# outputs look-up table of cover benefit values
 readr::read_csv(cover_data_path) %>%
   # this section cleans and fits a glm to observed data of fish vs. distance to cover
   dplyr::group_by(fish_size_mm) %>% # group by fish size
@@ -71,7 +73,10 @@ readr::read_csv(cover_data_path) %>%
   clean_up_df() %>%
   readr::write_csv(here::here(pred_proj_path, "output", paste0("prey_cover_bonus_", cell_size_m, "m_cell.csv")))
 
-readr::read_csv(cover_sim_path) %>%
+
+# outputs RDS and csv of params for model that converts pct cover to distance to cover
+
+dis_to_cover_model <- readr::read_csv(cover_sim_path) %>%
   dplyr::select(pct_cover, mean_dis_w_0) %>% # mean_dis_w_0 is just one of the two simulations run; includes all values with 0 dis to cover
   dplyr::mutate(dis_to_cover_m = mean_dis_w_0 * cell_size_m) %>% # adjust cell dimensions
   tidyr::nest(data = dplyr::everything()) %>% # use the nesting trick to git a model
@@ -81,12 +86,27 @@ readr::read_csv(cover_sim_path) %>%
       dis_to_cover_m ~ sqrt(pct_cover) * pct_cover,
       data = .
     )
-  )) %>% 
-  dplyr::pull(fit) %>% 
-  .[[1]] %>% 
+  )) %>%
+  dplyr::pull(fit) %>%
+  .[[1]]
+
+dis_to_cover_model %>%
+  broom::tidy() %>%
+  dplyr::mutate(
+    term = stringr::str_replace(term, "[(]Intercept[)]", "intercept"),
+    term = stringr::str_replace(term, "sqrt[(]pct_cover[)]", "sqrt_pct_cover"),
+    term = stringr::str_replace(term, ":", "_x_")
+  ) %>%
+  dplyr::select(term, estimate) %>% 
+  tidyr::pivot_wider(names_from = "term", values_from = "estimate") %>% 
+  readr::write_csv(here::here(pred_proj_path, "output", "pct_cov_convers_model.csv"))
+
+dis_to_cover_model %>%
   saveRDS(here::here(pred_proj_path, "output", "pct_cov_convers_model.RDS"))
 
-readr::read_csv(cover_data_path) %>%
+# outputs RDS and csv of params for model that converts distance to cover to a survival bonus
+
+cover_bonus_model <- readr::read_csv(cover_data_path) %>%
   # this section cleans and fits a glm to observed data of fish vs. distance to cover
   dplyr::group_by(fish_size_mm) %>% # group by fish size
   get_unitless_y(cumulative_fraction) %>%
@@ -100,8 +120,16 @@ readr::read_csv(cover_data_path) %>%
       family = stats::quasibinomial(logit),
       data = .
     )
-  )) %>% 
-  dplyr::pull(fit) %>% 
-  .[[1]] %>% 
-  saveRDS(here::here(pred_proj_path, "output", "dis_to_cov_model.RDS"))
+  )) %>%
+  dplyr::pull(fit) %>%
+  .[[1]]
 
+cover_bonus_model %>% 
+  broom::tidy() %>% 
+  dplyr::mutate(term = stringr::str_replace(term, "[(]Intercept[)]", "intercept")) %>% 
+  dplyr::select(term, estimate) %>% 
+  tidyr::pivot_wider(names_from = "term", values_from = "estimate") %>% 
+  readr::write_csv(here::here(pred_proj_path, "output", "dis_to_cov_model.csv"))
+
+cover_bonus_model %>%
+  saveRDS(here::here(pred_proj_path, "output", "dis_to_cov_model.RDS"))

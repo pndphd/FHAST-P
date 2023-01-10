@@ -62,5 +62,5 @@ readr::read_csv(path) %>%
   tidyr::unnest(tidy) %>% 
   dplyr::select(term, estimate) %>%
   pivot_wider(names_from = term, values_from = estimate) %>% 
-  dplyr::rename(intercept = `(Intercept)`) %>% 
+  dplyr::rename(intercept_C = `(Intercept)`) %>% 
   readr::write_csv(here::here(pred_proj_path, "output", "pred_temperature_params.csv"))

@@ -1,7 +1,7 @@
 # This folder contains the functions for Sample_Raster_Run.R
 
 ##### get_type_letter #####
-# this function translates the yype word into the letter
+# this function translates the type word into the letter
 get_type_letter = function(type = NULL){
   if(type == "depth"){
     type_letter = "D"
@@ -18,17 +18,29 @@ get_type_letter = function(type = NULL){
 # This function loads 
 load_rasters = function(type = NULL,
                         folder = NULL,
-                        flows = NULL){
-  
+                        clip_mask = NULL){
+
+    # Get the extent of the grid
+  extent = ext(clip_mask)
+
+  # Get the letter type
   type_letter = get_type_letter(type)
 
-  stack = rast(map(flows,~rast(here(folder, paste0(type_letter, .x, ".tif")))))
+  # Find the files that match the type.
+  files = list.files(folder, paste0(type_letter, "\\d+.tif"), full.names=TRUE)
+  # Sort the files so they are in flow order of low to high.
+  files_sorted = files[order(strtoi(str_extract(str_extract(files, paste0(type_letter, "\\d+.tif")), "\\d+")))]
+  # make the raster stack and crop it
+  stack = rast(map(files_sorted, ~rast(.x))) 
 
   if(type_letter == "D"){
     # Use terrain to calculate the slope and the correction for area
-    slope_raster = rast(here(folder, paste0("D", max(flows), ".tif"))) %>%
+    original_raster = rast(tail(files_sorted, n=1))
+    slope_raster = original_raster %>% 
+      terra::crop(extent) %>% 
       terrain(v="slope", neighbors = 4, unit = "radians")  %>%
-      app(fun = function(x){1/cos(x)})
+      app(fun = function(x){1/cos(x)}) %>% 
+      terra::extend(original_raster)
     # Give the value a name
     names(slope_raster) = "correction_factor"
 
@@ -56,6 +68,7 @@ get_wetted_area <- function(df, ...){
 # if depth is selected it also gets the bottom area
 sample_grid = function(stack = NULL,
                        grid = NULL,
+                       flows = NULL,
                        type = NULL){
   
   type_letter = get_type_letter(type)

@@ -59,7 +59,10 @@ pred_length_data <- pred_dists %>%
   tidyr::unnest(everything())
 
 pred_dist_params <- pred_dists %>% 
-  dplyr::select(-c(data, fit))
+  dplyr::select(-c(data, fit)) %>% 
+  tidyr::pivot_longer(cols = meanlog:sdlog, 
+                    names_to = "term", 
+                    values_to = "estimate")
 
 # 4. export data ----------------------------------------------------------
 

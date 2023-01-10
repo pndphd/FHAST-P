@@ -1,16 +1,18 @@
-library(here)
-
-# This assumes you've run load_libraries and default_initializaiton (and
-# possibly re-initialized to other inputs).
+########################################
+# Runs all the scripts for FHAST calculations
+#
+# This assumes you've run load_libraries and default_initializaiton
+# (and possibly re-initialized to other inputs).
+########################################
 
 # Make the daily input file
-source(here("scripts","R","daily_inputs","scripts","make_the_input_file.R"))
+source(here("scripts","R","daily_inputs","scripts","make_enviro_input_file.R"))
 
 # Make the daily fish input file
 source(here("scripts","R","daily_inputs","scripts","make_fish_input_file.R"))
 
-# Make the parameter fish input file
-source(here("scripts","R","fish_parameters","convert_parameters.R"))
+# Make preview map
+source(here("scripts","R","spatial_inputs","scripts", "make_preview_map.R"))
 
 # Make the grid 
 source(here("scripts","R","river_linear","scripts","Grid_Maker_Run.R"))

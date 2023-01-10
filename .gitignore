@@ -40,3 +40,10 @@ vignettes/*.pdf
 
 # Any large flow files 
 temporary/
+
+# Output csvs from netlogo
+scripts/NetLogo/IBM_testing/*.csv
+
+# Test files in migration folder
+scripts/R/migration/data/*
+scripts/NetLogo/IBM_testing/.FHAST_sim_movement.tmp.nlogo

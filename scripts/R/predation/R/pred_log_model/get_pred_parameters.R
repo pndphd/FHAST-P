@@ -25,8 +25,7 @@ param_table <- combined_data %>%
   ) %>%
   dplyr::select(species, params) %>%
   tidyr::unnest(cols = c(params)) %>% 
-  mutate(term = case_when(term == '(Intercept)' ~ 'intercept',
-         TRUE ~ term))
+  dplyr::mutate(term = str_replace(term, "\\(Intercept\\)", "intercept_glm"))
 # make a wide version for easier handling in Netlogo
 param_table_netlogo <- param_table %>% 
   pivot_wider(names_from = "term", values_from = "estimate")

@@ -7,31 +7,39 @@ header-includes:
     - \usepackage{setspace}\singlespacing
     - \usepackage{float}
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-geometry: margin=1in
-fontsize: 12pt
+geometry: margin=0.2in
+fontsize: 16pt
 fig_caption: yes
 indent: true
 ---
-
-/blandscape
+ <font size="4">
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, knitr::opts_chunk$set(warning = FALSE, message = FALSE) )
+knitr::opts_chunk$set(echo = TRUE, knitr::opts_chunk$set(warning = FALSE, message = FALSE))
 library(here)
 
 # Load Libraries and some base parameters
 source(here("scripts","R","main","load_libraries.R"))
+
+# Load some common functions used in running FHAST
+source(here("scripts", "R", "main", "fhast_file_functions.R"))
+
+# Load some plotting functions
+source(here("scripts", "R", "main", "plot_functions.R"))
+
+# Sets up the file structure for FHAST run
+source(here("scripts", "R", "main", "initialize_fhast.R"))
+
+# Run the initialization 
 source(here("scripts","R","main","default_initialization.R"))
 
-input_data <- read.csv(file = file.path(input_folder, fhast_config_file),
-                       sep = "=",
-                       row.names = 1,
-                       header = FALSE) %>% 
-  # Trim off white spaces form values
-  rename(value = 1) %>% 
-  mutate(value = str_trim(value, side = c("both")))
+# load all the input files and make basic parameter files
+# also do some basic checking of files
+source(here("scripts","R","parameters","load_convert_parameters.R"))
 
-simulation_name = input_data["folder",]
+input_data <- load_text_file(file.path(input_folder, fhast_config_file))
+
+simulation_name = input_data["simulation name",]
 ```
 
 ```{r load_data, include=FALSE}
@@ -39,20 +47,30 @@ summary_stats = readRDS(file = here("temporary", "R", "summary_stats_table.rds")
 
 fish_summary_stats = readRDS(file = here("temporary", "R", "summary_fish_stats_table.rds"))
 
-cover_scatter_plot = readRDS(file = here("temporary", "R", "cover_scatter_plot.rds"))
+cover_scatter_plot = here("temporary", "R", "cover_scatter_plot.png")
 
-cover_facet_map = readRDS(file = here("temporary", "R", "cover_facet_map.rds"))
+cover_facet_map = here("temporary", "R", "cover_facet_map.png")
 
-pred_map = readRDS(file = here("temporary", "R", "predator_map.rds"))
+cover_facet_hist = here("temporary", "R", "cover_facet_hist.png")
 
-cutoff_map = readRDS(file = here("temporary", "R", "cutoff_map.rds"))
+pred_map = here("temporary", "R", "predator_map.png")
 
-heat_map_plot = readRDS(file = here("temporary", "R", "depth_velocity_heatmap.rds"))
+cutoff_map = here("temporary", "R", "cutoff_map.png")
 
-fish_met_plot = readRDS(file = here("temporary", "R", "metabolic_map.rds"))
+heat_map_plot = here("temporary", "R", "depth_velocity_heatmap.png")
 
-fish_pred_plot = readRDS(file = here("temporary", "R", "predation_map.rds"))
+fish_met_plot = here("temporary", "R", "metabolic_map.png")
 
+fish_net_energy_plot = here("temporary", "R", "net_energy_map.png")
+
+fish_pred_plot = here("temporary", "R", "predation_map.png")
+
+```
+
+```{r pre_rrocess, include=FALSE}
+predator_list =  unique(pred_model_params$species)
+fish_list = unique(fish_parm$specie)
+n = 0
 ```
 
 ### Simulation name: `r simulation_name`
@@ -60,39 +78,65 @@ fish_pred_plot = readRDS(file = here("temporary", "R", "predation_map.rds"))
 ## Tabular Outputs 
 
 ```{r print_summary_stats, echo = FALSE}
-kable(summary_stats, caption = "The habitat summary statistics.")
+kable(summary_stats, caption = paste0("The habitat summary statistics. Units vary and are given next to each item name. CBC stands for cover bellow cuttoff percent which is the precent of area which is bellow the depth (", habitat_parm$dep_cutoff, " m) and velocity (", habitat_parm$vel_cutoff, " m/s) cuttoffs and has cover"))
 ```
 
 ```{r print_fish_summary_stats, echo = FALSE}
-kable(fish_summary_stats, caption = "The fish summary statistics.")
+fish_count <- length(unique(fish_summary_stats$species))
+
+kable(fish_summary_stats,
+      caption = paste0("The fish summary statistics for both juvenile and adult life stages of the ", fish_count, " specie(s) of fish."),
+      col.names = c("Species", "Life Stage", "Metabolic Rate (j/day)"))
 ```
 
 \newpage
 ## Figures Outputs
 
-```{r print_cover_figure, echo = FALSE, fig.align="center", fig.cap = "Cover shallower than cutoff."}
-print(cover_scatter_plot)
+```{r print_cover_figure, echo = FALSE, out.width = "100%", fig.align="center"}
+knitr::include_graphics(cover_scatter_plot)
 ```
 
-```{r print_pred_figure, echo = FALSE, fig.align="center", fig.cap = "The predation risk map."}
-print(pred_map)
+**Fig. `r (n = n + 1)`** The amount of cover area that is is water shallower then the cutoff (`r habitat_parm$dep_cutoff` m) for the level of flows present in the simulation. <br><br><br><br>
+
+```{r print_pred_figure, echo = FALSE, out.width = "100%", fig.align="center"}
+knitr::include_graphics(pred_map)
+```
+**Fig. `r (n = n + 1)`** The predation rating map. This map shows the extent to which the preatotors selected (`r predator_list`) for this model will be attracted to areas. The attraction is abase on the average of the conditions in each area over the entire extent the the run (i.e. the start (`r daily_inputs["start date",]`) and end (`r daily_inputs["end date",]`) dates of the daily environmental conditions input file).<br><br><br><br>
+
+```{r print_facet_map, echo = FALSE, out.width = "100%", fig.align="center"}
+knitr::include_graphics(cover_facet_map)
 ```
 
-```{r print_facet_map, echo = FALSE, fig.align="center", fig.cap = "Porportion of cover divided out by velocity and depth cutoffs.."}
-print(cover_facet_map)
+**Fig. `r (n = n + 1)`** The fraction of an area that is undercover separated by sections that are on average above or bellow the depth and velocity cutoffs (`r habitat_parm$dep_cutoff` m and `r habitat_parm$vel_cutoff` m/s respectively). <br><br><br><br>
+
+```{r print_facet_hist, echo = FALSE, out.width = "100%", fig.align="center"}
+knitr::include_graphics(cover_facet_hist)
 ```
 
-```{r print_heatmap_figure, echo = FALSE, fig.align="center", fig.cap = "The depth and velocity heatmap risk map."}
-print(heat_map_plot)
+**Fig. `r (n = n + 1)`** The density histograms of the area that is undercover separated by sections that are on average above or bellow the depth and velocity cutoffs (`r habitat_parm$dep_cutoff` m and `r habitat_parm$vel_cutoff` m/s respectively). <br><br><br><br>
+
+```{r print_heatmap_figure, echo = FALSE, out.width = "100%", fig.align="center"}
+knitr::include_graphics(heat_map_plot)
 ```
 
-```{r print_fish_met_figure, echo = FALSE, fig.height = 30,  fig.align="center", fig.cap = "The metabolic rate of the fish."}
-print(fish_met_plot, height = 60)
+**Fig. `r (n = n + 1)`** A heat map showing the fraction of area at set average depths and velocities over the time of the simulation (`r daily_inputs["start date",]` to `r daily_inputs["end date",]`) . <br><br><br><br>
+
+```{r print_fish_met_figure, echo = FALSE, out.width = "100%",  fig.align="center" }
+knitr::include_graphics(fish_met_plot)
 ```
 
-```{r print_fish_pred_figure, echo = FALSE, fig.height = 30,  fig.align="center", fig.cap = "The predation rate of the fish."}
-print(fish_pred_plot, height = 60)
+**Fig. `r (n = n + 1)`** A set of maps showing the metabolic rate for both the juvenile and adult life stage of the simulated species of fish (`r fish_list`) if the fish swam at the water velocity and temperature of the cell for 24 hours. <br><br><br><br>
+
+```{r print_fish_energy_figure, echo = FALSE, out.width = "100%",  fig.align="center", fig.cap = "The net energy of the fish."}
+knitr::include_graphics(fish_net_energy_plot)
 ```
+
+**Fig. `r (n = n + 1)`** A set of maps showing the net energy budget for both the juvenile and adult life stage of the simulated species of fish (`r fish_list`) if the fish swam at the water velocity and temperature of the cell for 24 hours and consumed food. <br><br><br><br>
+
+```{r print_fish_pred_figure, echo = FALSE, out.width = "100%", fig.align="center"}
+knitr::include_graphics(fish_pred_plot)
+```
+**Fig. `r (n = n + 1)`** A set of maps showing the mortality rate for the juvenile life stage (represented by fish of length `r fish_parm$eg_juvenile_length` cm) of the fish species (`r fish_list`). <br><br><br><br>
 
 \newpage
 ## Appendix
@@ -105,14 +149,19 @@ cat(readLines(file.path(input_folder, fhast_config_file)), sep = '\n')
 
 The daily input file:
 ```{r, echo=FALSE, }
-cat(readLines(file.path(input_folder, input_data["folder",], "daily", input_data["daily file",])), sep = '\n')
+cat(readLines(daily_path), sep = '\n')
+```
+---
+
+The interaction input file:
+```{r, echo=FALSE, }
+cat(readLines(interaction_path), sep = '\n')
 ```
 ---
 
 The fish population file:
 ```{r, echo=FALSE, }
-cat(readLines(file.path(input_folder, input_data["folder",],
-                        "fish", input_data["fish population file",])), sep = '\n')
+cat(readLines(fish_population_path), sep = '\n')
 ```
 ---
 
@@ -120,27 +169,19 @@ The fish parameter file:
 
 ---
 ```{r, echo=FALSE, }
-cat(readLines(file.path(input_folder, input_data["folder",],
-                        "fish", input_data["fish parameters file",])), sep = '\n')
-```
----
-
-The grid resolution file:
-```{r, echo=FALSE, }
-cat(readLines(file.path(input_folder, input_data["folder",],
-                        "grid", input_data["grid resolution file",])), sep = '\n')
+cat(readLines(fish_parameters_path), sep = '\n')
 ```
 ---
 
 The habitat parameter file:
 ```{r, echo=FALSE, }
-cat(readLines(file.path(input_folder, input_data["folder",],
-                        "habitat", input_data["habitat parameters file",])), sep = '\n')
+cat(readLines(hab_path), sep = '\n')
 ```
 ---
 
-The predator input file (not yet set indepidently):
+The predator input file:
 ```{r, echo=FALSE, }
-print("to be set")
+cat(readLines(predator_path), sep = '\n')
 ```
 ---
+</font>

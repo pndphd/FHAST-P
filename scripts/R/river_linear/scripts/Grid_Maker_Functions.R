@@ -1,46 +1,19 @@
 # This file has the functions used in River_Grid_Maker_Run.R #
 
-##### load_input_files #####
-# This first file loads and conditions the input files 
-load_input_files = function(line = NULL,
-                            top = NULL){
- 
-  # Load the center line and smooth it
-  river_line = st_read(line, quiet = TRUE) %>%
-    st_zm() %>%
-    # bandwidth = resolution*10 was a good value in testing
-    smooth(method = "ksmooth",
-           max_distance = resolution,
-           bandwidth = resolution*10)
-  
-  # Load the top of the reach marker
-  top_marker = st_read(top, quiet = TRUE) %>%
-    st_zm()
-
-  
-  # CHeck that these are the same crs
-  if (!compareCRS(river_line, top_marker)){
-    stop('The CRSs of the two shape files are not the same.')
-  }
-  
-  output = list(line = river_line,
-                top = top_marker)
-  return(output)
-}
-
 ##### make_distances_list #####
 # This Function makes the list of distances
 make_distances_list = function(resolution = NULL,
                                buffer = NULL){
-  distances = seq(resolution/2, max_buffer + resolution, resolution)
+  distances = seq(resolution/2, buffer + resolution, resolution)
   return(distances)
 }
 
 ##### make_buffers #####
 make_buffers = function(distances = NULL,
-                       line = NULL){
+                       line = NULL,
+                       resolution = NULL){
   
-  buffers = map(distances, ~buffer_lines(line, .x)) %>% 
+  buffers = map(distances, ~buffer_lines(line, .x, resolution)) %>% 
     do.call(rbind, .) %>% 
     st_difference() %>% 
     filter(st_is(., c("POLYGON","MULTIPOLYGON"))) 
@@ -51,7 +24,7 @@ make_buffers = function(distances = NULL,
 ##### buffer_lines #####
 # Make a function to make series of buffers that from the
 # lateral part of the grid
-buffer_lines = function(shape, distance){
+buffer_lines = function(shape, distance, resolution){
   buffer = st_buffer(x = shape, dist = distance) %>%
     mutate(lat_dist = distance - resolution/2)   
   return (buffer)
