@@ -1,5 +1,5 @@
 ########################################
-# This is a set of functions communally used in FHAST
+# This is a set of functions communally used in FHAST for file manupi
 ########################################
 
 # Make a directory if it's missing for a file path
@@ -111,19 +111,6 @@ get_num <- function(df, name) {
   value <- as.numeric(df[name, ])
 }
 
-# calculate the logistic function in the style of inSALMO
-calc_logistic <- function(parm_10 = NULL,
-                          parm_90 = NULL,
-                          value = NULL){
-  log_d = log(0.9/0.1)
-  log_c = log(0.1/0.9)
-  log_b = (log_c - log_d)/(parm_10 - parm_90)
-  log_a = log_c - (log_b * parm_10)
-  z = log_a + (log_b * value)
-  s = exp(z)/(1 + exp(z))
-  return(s)
-}
-
 store_last_run_hashes <- function(file_path, files) {
   obj <- data.frame(
     files = files,
@@ -138,16 +125,17 @@ compare_last_run_hashes <- function(file_path, files) {
   }
   # Load the hash values from the last run
   obj <- load_text_file(file_path)
-
+  if (length(row.names(obj)) != length(files)) {
+    return(FALSE)
+  }
+  # NA is written to disk as empty string.
+  files = replace_na(files, '')
   # Verify files match
-  if (any(row.names(obj) != files)) {
+  if (!all(mapply(identical, row.names(obj), files))) {
     return(FALSE)
   }
-
+  hashes = as.vector(md5sum(files))
+  hashes = replace_na(hashes, '')
   # verify md5 matches
-  if (any(sapply(files, md5sum)!=obj)) {
-    return(FALSE)
-  }
-
-  return(TRUE)
+  return(all(mapply(identical, hashes, obj[,1])))
 }

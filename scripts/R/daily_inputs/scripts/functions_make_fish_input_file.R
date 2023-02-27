@@ -31,8 +31,14 @@ load_fish_timeseries <- function(input_file_in) {
   fish_schedule <- input_file_in %>%
     pmap_dfr(~spread_out_fish(...)) %>%
     arrange(date) %>%
-    mutate(date = format(date, "%m/%d/%Y"))
-
+    group_by(species, lifestage) %>% 
+    # change to account for super individuals
+    mutate(date = format(date, "%m/%d/%Y"),
+           cum_sum = floor(cumsum(number)/habitat_parm$superind_ratio),
+           number = ifelse(lifestage == "adult", number,
+                           cum_sum-lag(cum_sum, default = 0))) %>% 
+    ungroup() %>% 
+    select(-cum_sum)
   return(fish_schedule)
 }
 
@@ -41,7 +47,7 @@ plot_fish_timeseries <- function(fish_schedule) {
     mutate(Group = str_c(species, " ", lifestage))
 
   time_series_plot_fish <- ggplot(data = fish_plot_data, aes(x = mdy(date),
-                                                            y = number,
+                                                            y = number * habitat_parm$superind_ratio,
                                                             color = Group)) +
     theme_classic(base_size = 20) +
     theme(legend.position = "top") +

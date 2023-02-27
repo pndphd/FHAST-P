@@ -23,6 +23,12 @@ initialize_fhast(file_path)
 source(file = here("scripts", "R", "main", "num_cores_func.R"))
 num_cores <- pick_num_cores()
 
+# make an output directory 
+output_folder = here(input_folder, "FHAST_outputs")
+output_shape_folder = here(output_folder, "shape_files")
+dir.create(output_folder)
+dir.create(output_shape_folder)
+
 future::plan(
   strategy = multisession,
   workers = num_cores

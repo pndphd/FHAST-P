@@ -34,6 +34,7 @@ packages = c(
   
   # Programming and processing
   "purrr",
+  "future",
   "furrr",
   "parallel",
   "igraph", # for adult pathfinding algorithm
@@ -52,7 +53,10 @@ packages = c(
   "ggplot2",
   "viridis",
   "patchwork",
-  "leaflet"
+  "leaflet",
+  
+  # Netlogo control library
+  "nlrx"
 )
 
 # install any missing packages and load all packages

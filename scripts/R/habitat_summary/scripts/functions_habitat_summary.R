@@ -40,10 +40,11 @@ average_daily_data <- function(data_frame, col_1, new_col) {
 
 ##### Plotting Functions #####
 # Line plot
-make_line_plot <- function(data_frame, x_axis, y_axis, x_lab, y_lab) {
+make_line_plot <- function(data_frame, x_axis, y_axis, x_lab, y_lab, title = NULL) {
   output_plot <- ggplot(data_frame, aes(x = {{ x_axis }}, y = {{ y_axis }})) +
     theme_classic(base_size = selected_base_size) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    ggtitle(title) +
     geom_path(
       color = cbPalette[1],
       size = 1,
@@ -55,10 +56,11 @@ make_line_plot <- function(data_frame, x_axis, y_axis, x_lab, y_lab) {
   return(output_plot)
 }
 
-make_scatter_plot <- function(data_frame, x_axis, y_axis, x_lab, y_lab) {
+make_scatter_plot <- function(data_frame, x_axis, y_axis, x_lab, y_lab, title = NULL) {
   output_plot <- ggplot(data_frame, aes(x = {{ x_axis }}, y = {{ y_axis }})) +
     theme_classic(base_size = selected_base_size) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    ggtitle(title) +
     geom_point(
       color = cbPalette[1],
       size = 2,

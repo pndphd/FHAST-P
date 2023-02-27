@@ -24,3 +24,5 @@ select_model_param <- function(df, param) {
 make_variables <- function(df, filename) {
   do.call("<<-",list(filename,df))
 }
+
+

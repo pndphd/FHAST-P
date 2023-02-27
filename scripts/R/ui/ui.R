@@ -61,6 +61,9 @@ input_file_tab <- tabPanel(
   textInput("predator_file", "Predator Parameters"),
   shinyFilesButton("picker_predator_file", "Select Predator Parameters",
     "Please select the Predator Parameters", FALSE),
+  textInput("tree_growth_file", "Tree Growth"),
+  shinyFilesButton("picker_tree_growth_file", "Select Tree Growth",
+                   "Please select the Tree Growth", FALSE),
   # Optional area of interest
   textInput("aoi_file", "Optional Area of Interest"),
   shinyFilesButton("picker_aoi_file", "Select Area of Interest",

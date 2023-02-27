@@ -23,11 +23,11 @@ widen_model_params <- function(model_params) {
 # selects the intercept value from the widened param data
 get_intercept <- function(params_wider) {
   params_wider %>%
-    select(starts_with("intercept")) %>% 
+    select(starts_with("int")) %>% 
     pull(1)
 }
 # selects only the parameter data from the widened param value
-get_param_data <- function(params_wider, vals_to_drop = c(contains("intercept"), species)) {
+get_param_data <- function(params_wider, vals_to_drop = c(contains("int"), species)) {
   params_wider %>%
     select(-{{ vals_to_drop }})
 }
@@ -41,7 +41,7 @@ get_param_vector <- function(param_data) {
 
 # uses the intercept and param vector to calculate all predicted habitat values for a given predator species
 make_predictions <- function(df, model_params, species_name) {
- # browser()
+
   subset_model_params <- subset_params(species_name, model_params)
   model_params_wide <- widen_model_params(subset_model_params)
   intercept <- get_intercept(model_params_wide)
@@ -105,7 +105,7 @@ get_list_of_species <- function(model_params) {
 select_hab_vars <- function(model_params) {
   model_params %>%
     distinct(term) %>%
-    filter(!grepl("intercept", term)) %>%
+    filter(!grepl("int", term)) %>%
     pull(term)
 }
 
@@ -186,7 +186,7 @@ get_all_pred_lengths <- function(df, pred_length_data) {
     count(species) %>%
     left_join(pred_length_data, by = "species") %>% 
     mutate(pred_length = pmap(
-      .l = list(n, meanlog, sdlog),
+      .l = list(n, pred_length_mean, pred_length_sd),
       .f = rlnorm
     )) %>%
     select(pred_length) %>% 
@@ -198,7 +198,7 @@ get_all_pred_lengths <- function(df, pred_length_data) {
 
 
 adjust_preds_for_length <- function(df, species_list, pred_length_data) {
-  #browser()
+  # browser()
   new_preds <- df %>%
    # drop_na() %>%
     pivot_longer(all_of(species_list), names_to = "species") %>%
@@ -296,9 +296,11 @@ calc_temp_effect <- function(temp, param, intercept) {
 # calculates all temperature effects for the whole input dataframe
 calc_all_temp_effects <- function(df, temp_params) {
   #browser()
-  intercept <- get_intercept(temp_params)
+  intercept <- temp_params %>% 
+    select(area_pred_a) %>% 
+    pull(1)
 
-  param <- get_param_data(temp_params, vals_to_drop = contains("intercept")) %>%
+  param <- get_param_data(temp_params, vals_to_drop = contains("_a")) %>%
     get_param_vector()
   # temp_col <- get_col_name(df, term = "temp")
   # temp_col <- ensym(temp_col)

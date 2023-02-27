@@ -27,7 +27,7 @@ input_output_file_paths <- c(grid_center_line_path, hab_path,
 hash_storage <-here(temp_folder, "grid_maker_run_hashes.txt")
 
 if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
-  
+
   ##### Pre Processing #####
   # get a list of distances for buffers
   distances_list = make_distances_list(resolution = habitat_parm$resolution,
@@ -79,7 +79,10 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
   grid_save = grid %>% 
     rename(dist = distance,
            l_or_r = left_or_right)
+  
   write_sf(grid_save, temp_river_grid_shape_path,
+           driver ="ESRI Shapefile")
+  write_sf(grid_save, here(output_shape_folder, "river_grid.shp"),
            driver ="ESRI Shapefile")
  
   store_last_run_hashes(hash_storage, input_output_file_paths) 

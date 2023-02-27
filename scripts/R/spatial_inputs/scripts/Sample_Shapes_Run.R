@@ -16,7 +16,7 @@ temp_river_grid_path <- here(temp_folder, "R", paste0("river_grid_",
                                                       "_",
                                                       habitat_parm$buffer,
                                                       ".rds"))
-temp_shape_file_path <- here(temp_folder, "R", "shade_file.rds")
+temp_shape_file_path <- here(temp_folder, "R", paste0("shade_file_", habitat_parm$veg_growth_years,".rds"))
 
 temp_netlogo_shape_data_path <- here(temp_folder,"NetLogo",
                                      paste0("Shape_Data_Input_",
@@ -30,8 +30,8 @@ input_output_file_paths <- c(temp_river_grid_path, temp_shape_file_path,
 hash_storage <-here(temp_folder, "sample_shapes_run_hashes.txt")
 
 if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
-    
-  
+
+
   ##### Load Files #####
   # Load the grid file
   river_grid = readRDS(temp_river_grid_path)
@@ -44,6 +44,17 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
     str_split(",") %>% 
     pluck(1) %>% 
     str_trim(side = "both")
+  # get what is classified as cover habitat
+  cover_habitat = habitat_parm$cover_hab %>% 
+    str_split(",") %>% 
+    pluck(1) %>% 
+    str_trim(side = "both")
+  # get what is classified as small cover habitat
+  small_cover_habitat = habitat_parm$small_cover_hab %>% 
+    str_split(",") %>% 
+    pluck(1) %>% 
+    str_trim(side = "both")
+  
   # make a list of files and variable names
   cover_names = list("veg", "wood", "fine", "gravel", "cobble", "rock")
   
@@ -58,8 +69,10 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
                                       shape_files,
                                       the_variables,
                                       the_variables) %>%
-    # Add in column fo benthic food
-    mutate(ben_food_fra = rowSums(across(benthic_food_habitat)))
+    # Add in column fo benthic food, cover and small cover
+    mutate(ben_food_fra = rowSums(across(benthic_food_habitat)),
+           cover_fra = rowSums(across(cover_habitat)),
+           small_cover_fra = rowSums(across(small_cover_habitat)))
   
   
   # Add in the AOI
@@ -87,6 +100,9 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
             temp_netlogo_shape_data_path,
             na = "-9999",
             row.names = FALSE)
+  
+  write_sf(sampeled_w_aoi, here(output_shape_folder, "sampeled_shape.shp"),
+           driver ="ESRI Shapefile")
   
   store_last_run_hashes(hash_storage, input_output_file_paths)
 }

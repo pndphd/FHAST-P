@@ -71,6 +71,19 @@ fish_combos <- expand.grid(
 # get the total number or days
 final_day <- max(daily_file$day)
 
+# determine if there are adults in the run
+adult_rows <- fish_schedule %>% 
+  filter(between(mdy(date), min(daily_file$date), max(daily_file$date))) %>% 
+  filter(lifestage == "adult") %>% 
+  nrow()
+
+if(adult_rows > 0){
+  adults <- 1
+} else {
+  adults <- 0
+}
+
+
 ##### Main Work #####
 
 ##### Run the time series #####
@@ -91,7 +104,9 @@ time_series_data <- daily_file %>%
     temp_params = pred_temp_params,
     pred_length_data = pred_length_data,
     pct_cover_model = pct_cover_model,
-    gape_params = gape_params),
+    gape_params = gape_params,
+    fish_schedule = fish_schedule,
+    adults = adults),
   .init = 0)
 
 # Divide out the outputs
@@ -117,6 +132,19 @@ daily_habitat_data <- time_series_data$daily_habitat %>%
 daily_fish_data <- time_series_data$daily_fish %>% 
   map(~left_join(.x, select(daily_file, date, day), by = "day"))
 
+# Fifth Adult migration 
+if (adults > 0){
+  adult_migration_energy_data = time_series_data$adult_migration$energy_costs %>% 
+    unnest(energy_cost)
+  adult_migration_map_data = time_series_data$adult_migration$paths %>% 
+    group_by(species) %>% 
+    mutate(num_paths = num_paths/max(num_paths)) %>% 
+    ungroup() %>% 
+    left_join(grid_file, by = c("distance", "lat_dist")) %>% 
+    st_as_sf() %>% 
+    split(f = .$species)
+}
+
 ##### Basic Calculations #####
 # Do daily calculations
 daily_wetted_area <- multiply_and_sum(
@@ -133,18 +161,18 @@ shallow_area <- time_series_data$map_habitat %>%
 
 ##### Summary Stats #####
 # A set of summary stats for the habitat
-summary_stats <- data.frame(cover_area_m2 = sum((mean_map$veg + mean_map$wood) *
+summary_stats <- data.frame(cover_area_m2 = sum(mean_map$cover_fra *
   mean_map$area * mean_map$wetted_fraction)) %>%
   mutate(
     near_shore_cover_area_m2 = sum(mean_map$area *
                                      mean_map$wetted_fraction *
                                      mean_map$near_shore *
-                                     (mean_map$veg + mean_map$wood)),
-    near_shore_cover_area_bellow_v_m2 = sum(mean_map$area *
+                                     (mean_map$cover_fra)),
+    near_shore_cover_area_below_v_m2 = sum(mean_map$area *
                                      mean_map$wetted_fraction *
                                        mean_map$below_v_cutoff*
                                      mean_map$near_shore *
-                                     (mean_map$veg + mean_map$wood)),
+                                     (mean_map$cover_fra)),
     percent_area_below_v_cutoff = sum(mean_map$below_v_cutoff *
       mean_map$area * mean_map$wetted_fraction) /
       sum(mean_map$area * mean_map$wetted_fraction)*100,
@@ -154,11 +182,11 @@ summary_stats <- data.frame(cover_area_m2 = sum((mean_map$veg + mean_map$wood) *
     percent_near_shore_area = sum(mean_map$area * mean_map$wetted_fraction *
       mean_map$near_shore)/
       sum(mean_map$area * mean_map$wetted_fraction)*100,
-    CBC_percent = sum((mean_map$veg + mean_map$wood) *
+    CBC_percent = sum((mean_map$cover_fra) *
       mean_map$area * mean_map$wetted_fraction *
       mean_map$below_v_cutoff * mean_map$below_d_cutoff) /
       sum(mean_map$area * mean_map$wetted_fraction)*100,
-    average_cover_percent = sum((mean_map$veg + mean_map$wood) *
+    average_cover_percent = sum((mean_map$cover_fra) *
                                   mean_map$area * mean_map$wetted_fraction) /
       sum(mean_map$area * mean_map$wetted_fraction)*100
   ) %>%
@@ -180,6 +208,15 @@ calc_fish_summary_stats <- function(df) {
 # A set of summary stats for the fish
 fish_summary_stats <- mean_fish_maps %>%
   map_df(~ calc_fish_summary_stats(.x))
+# and for the migrating adults
+if (adults == 1){
+  migration_summary_stats = adult_migration_energy_data %>% 
+    group_by(species) %>% 
+    summarise(migration_energy_cost = mean(energy_cost, na.rm = TRUE)) %>% 
+    ungroup()
+} else{
+  migration_summary_stats = data.frame(migration_energy_cost = 0, Species = "None")
+}
 
 ##### Plots #####
 ##### Line Plots #####
@@ -212,7 +249,7 @@ plot_widths = 5
 # wetted map
 cover_map <- make_map(
   data_frame = mean_map,
-  fill = veg + wood,
+  fill = cover_fra,
   scale_name = "Cover\nFraction"
 )
 display_plot(cover_map)
@@ -224,7 +261,7 @@ cutoff_map <- make_map(
       depth < habitat_parm$dep_cutoff,
       velocity < habitat_parm$vel_cutoff
     ),
-  fill = (wood + veg),
+  fill = (cover_fra),
   scale_name = "Cover\nFraction"
 )
 display_plot(cutoff_map)
@@ -250,26 +287,35 @@ d_cutoff_label <- c("1" = "Below D", "0" = "Above D")
 v_cutoff_label <- c("1" = "Below V", "0" = "Above V")
 cover_facet_map  <- make_map(
   data_frame = mean_map,
-  fill = (veg + wood),
+  fill = (cover_fra),
   scale_name = "Cover"
 ) + facet_grid(below_d_cutoff ~ below_v_cutoff,
                labeller = labeller(below_d_cutoff = d_cutoff_label,
                                    below_v_cutoff = v_cutoff_label))
 display_plot(cover_facet_map, 10, 20)
 
-# cover facet histogram
-cover_facet_hist  <- make_hist(
-  data_frame = mean_map,
-  bins = pct_cover,
-  x_label = "Percent Cover",
-  weights = wetted_area) +
-  facet_grid(below_d_cutoff ~ below_v_cutoff,
-             labeller = labeller(below_d_cutoff = d_cutoff_label,
-                                   below_v_cutoff = v_cutoff_label))
-display_plot(cover_facet_hist, 10, 20)
+# adult migration map
+if (adults == 1){
+migration_map <- adult_migration_map_data %>% 
+  map(~make_map(
+    data_frame = .x,
+    fill = num_paths,
+    scale_name = "Frequency of Use",
+    title = str_replace_all(paste0(.x$species[1]),
+                            "_", " "))) %T>% 
+  assign(x = "migration_map_length", value = length(.), envir = .GlobalEnv)%>% 
+  wrap_plots(ncol = 1, widths = plot_widths,
+             heights = migration_map_length * plot_widths)
+display_plot(migration_map, 15, 15)
+}else{
+  migration_map <- ggplot() + geom_blank()
+  migration_map_length = 1
+}
+
 
 # Metabolic map
-metabolic_map <- mean_fish_maps %>% map(~make_map(
+metabolic_map <- mean_fish_maps %>% 
+  map(~make_map(
   data_frame = .x,
   fill = fish_met_j_per_day,
   scale_name = "Metabolic Rate\n(j/day)",
@@ -282,9 +328,9 @@ display_plot(metabolic_map, 15, 15)
 
 # Net energy map
 net_energy_map <- mean_fish_maps %>% map(~make_map(
-  data_frame = .x %>% mutate(net_energy = ifelse(net_energy >=0, net_energy, 0)),
+  data_frame = .x %>% mutate(net_energy = ifelse(net_energy>=0, net_energy, 0)),
   fill = net_energy,
-  scale_name = "Net Energy\n(j/day)",
+  scale_name = "Net Positive\nEnergy Areas\n(j/day)",
   title = str_replace_all(paste0(.x$species[1],"-",.x$life_stage[1]),
                           "_", " "))) %T>% 
   assign(x = "net_energy_map_length", value = length(.), envir = .GlobalEnv)%>% 
@@ -305,6 +351,34 @@ predation_map <- mean_fish_maps[c(which(fish_summary_stats$life_stage == "juveni
              heights = predation_map_length * plot_widths)
 display_plot(predation_map, 15, 15)
 
+##### Histograms and bar plots #####
+# cover facet histogram
+cover_facet_hist  <- make_hist(
+  data_frame = mean_map,
+  bins = pct_cover,
+  x_label = "Percent Cover",
+  weights = wetted_area) +
+  facet_grid(below_d_cutoff ~ below_v_cutoff,
+             labeller = labeller(below_d_cutoff = d_cutoff_label,
+                                 below_v_cutoff = v_cutoff_label))
+display_plot(cover_facet_hist, 10, 20)
+
+if (adults == 1){
+  migration_energy_hist <- ggplot(adult_migration_energy_data) +
+    theme_classic(base_size = 20) +
+    theme(axis.title.y=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank()) +
+    geom_density(aes(x = energy_cost/1000,
+                     y=after_stat(scaled)),
+                 fill = cbPalette[1]) +
+    labs(x = "Energy Cost (kJ)") +
+    facet_wrap(species~., scales = "free", ncol = 1)
+} else{
+  migration_energy_hist <- ggplot() + geom_blank()
+}
+display_plot(migration_energy_hist)
+
 ##### Save Outputs #####
 
 # List of objects and names for the save files 
@@ -317,9 +391,12 @@ plot_list = list(cover_scatter_plot,
                  heat_map_plot,
                  metabolic_map,
                  predation_map,
-                 net_energy_map)
+                 net_energy_map,
+                 migration_map,
+                 migration_energy_hist)
 data_list = list(summary_stats,
-                 fish_summary_stats)
+                 fish_summary_stats,
+                 migration_summary_stats)
 plot_name_list = list("cover_scatter_plot",
                       "cover_map",
                       "cover_facet_map",
@@ -329,20 +406,34 @@ plot_name_list = list("cover_scatter_plot",
                       "depth_velocity_heatmap",
                       "metabolic_map",
                       "predation_map",
-                      "net_energy_map")
+                      "net_energy_map",
+                      "migration_map",
+                      "migration_energy_hist")
 data_name_list = list("summary_stats_table",
-                      "summary_fish_stats_table")
+                      "summary_fish_stats_table",
+                      "summary_migration_table")
 object_list = c(data_list, plot_list)
 object_name_list = c(data_name_list, plot_name_list)
 plot_dimeshions = list(1.2,1.2,1.2,1.2,1.2,1.2,1.2,
                        metabolic_map_length+1,
                        predation_map_length+1,
-                       net_energy_map_length+1)
+                       net_energy_map_length+1,
+                       (migration_map_length+1)/2,
+                       (migration_map_length+1)/2)
 
 # Save all the outputs 
 walk2(object_list, object_name_list, ~saveRDS(
   object = .x,
   file = here("temporary", "R", paste0(.y, ".rds"))))
+
+#save for output
+pwalk(list(plot_list, plot_name_list, plot_dimeshions), ~ggsave(
+  height = ..3*5,
+  plot = ..1,
+  filename = here(output_folder, paste0(..2, ".png")),
+  limitsize = FALSE,
+  device = "png"))
+# Save for future processing
 pwalk(list(plot_list, plot_name_list, plot_dimeshions), ~ggsave(
   height = ..3*5,
   plot = ..1,

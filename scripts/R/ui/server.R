@@ -11,36 +11,62 @@ library(shiny)
 library(shinyFiles)
 library(here)
 library(data.table)
-source(here("scripts", "R", "main", "load_libraries.R"))
-source(here("scripts", "R", "main", "default_initialization.R"))
-source(here("scripts", "R", "main", "fhast_file_functions.r"))
+
+# Load Libraries and some base parameters
+source(here("scripts","R","main","load_libraries.R"))
+
+# Load some common functions used in running FHAST
+source(here("scripts", "R", "main", "fhast_file_functions.R"))
+source(here("scripts", "R", "main", "fhast_math_functions.R"))
+
+# Load some plotting functions
+source(here("scripts", "R", "main", "plot_functions.R"))
+
+# Sets up the file structure for FHAST run
 source(here("scripts", "R", "main", "initialize_fhast.R"))
+
+# Run the initialization 
+source(here("scripts","R","main","default_initialization.R"))
+
+# load all the input files and make basic parameter files
+# also do some basic checking of files
+# need to load pathfinder finding first for adult parameters
+source(here("scripts","R","migration", "R", "pathfinding_functions.R"))
+source(here("scripts","R","parameters","load_convert_parameters.R"))
 source(here("scripts", "R", "daily_inputs", "scripts",
             "functions_make_enviro_input_file.R"))
 source(here("scripts", "R", "daily_inputs", "scripts",
             "functions_make_fish_input_file.R"))
 source(here("scripts","R","spatial_inputs","scripts",
             "make_preview_map_functions.R"))
+source(here("scripts", "R", "netlogo", "NetLogo_Controller.R"))
+
+netlogo_path <<- ""
 
 print_plots <<- FALSE
+
+habitat_options <<- list(fine="fine", gravel="gravel", cobble="cobble", vegetation="veg", wood="wood")
 
 habitat_params <<- data.frame(
   file_names = c(
     "benthic food density", "benthic food energy density",
+    "benthic food habitat", "cover habitat", "small cover habitat",
     "drift food density", "drift food energy density",
     "velocity cutoff", "depth cutoff", "resolution",
-    "buffer", "predators per area", "superindividual ratio"
+    "buffer", "predators per area", "vegetation growth years"
   ),
   input_names = c(
     "hab_benth_food_dens", "hab_benth_energy_dens",
+    "hab_benth_food_habitat", "hab_cover_hab", "hab_small_cover_hab",
     "hab_drift_food_dens", "hab_drift_enery_dens",
     "hab_vel_cutoff", "hab_depth_cutoff", "hab_resolution",
-    "hab_bufffer", "hab_pred_per_area", "hab_superindividual"
+    "hab_bufffer", "hab_pred_per_area", "hab_veg_growth_yrs"
   ),
-  default_values = c(1, 1, 3e-3, 1, 0.61, 0.5, 20, 600, 0.003, 1),
+  default_values = c(1000, 1887, "fine, gravel, cobble", "veg, wood", "veg, wood, cobble", 3e-4, 1877, 0.61, 0.5, 20, 600, 0.003, 10),
   input_type = c(
+    "numeric", "numeric", "hab_multi_select", "hab_multi_select", "hab_multi_select",
     "numeric", "numeric", "numeric", "numeric", "numeric",
-    "numeric", "numeric", "numeric", "numeric", "numeric"
+    "numeric", "numeric", "numeric"
   )
 )
 
@@ -48,25 +74,27 @@ interactions_params <<- data.frame(
   file_names = c(
     "cover velocity fraction", "percent cover intercept",
     "percent cover root", "percent cover slope",
-    "percent cover 3-2 root", "distance to cover intercept",
-    "distance to cover slope",
+    "percent cover 3-2 root",
     "temperature predator area baseline",
-    "predator success baseline", "turbidity intercept", "turbidity slope",
-    "d84 size", "benthic velocity height"
+    "predator success baseline", 
+    "d84 size", "benthic velocity height", "superindividual ratio",
+    "turbidity cover 10", "turbidity cover 90", "distance to cover 10",
+    "distance to cover 90"
   ),
   input_names = c(
     "inter_cover_vel_frac", "inter_perc_cov_inter",
     "inter_perc_cover_root", "inter_percent_cover_slope",
-    "inter_perc_cover32_root", "inter_dist_cover",
-    "inter_dist_cover_slope", "inter_temp_pred_area_base",
-    "inter_pred_success_base", "inter_turb_intercept", "inter_turb_slope",
-    "inter_d84_size", "inter_benthic_velocity_height"
+    "inter_perc_cover32_root", "inter_temp_pred_area_base",
+    "inter_pred_success_base", "inter_d84_size",
+    "inter_benthic_velocity_height", "inter_superindividual_ratio",
+    "inter_turb_cov_10", "inter_turb_cov_90", "inter_dist_cov_10",
+    "inter_dist_cov_90"
   ),
-  default_values = c(0.5, 0.477, -0.576, -0.183, 0.282, 2.197, -2.794, 1, 1,
-                     -2.49, 0.0586, 0.008, 0.1),
+  default_values = c(0.488, 0.477, -0.576, -0.183, 0.282, 1, 1, 0.008, 0.1, 1,
+                     -116, 169, 1.57, 0),
   input_type = c(
     "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric",
-    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
+    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
   )
 )
 
@@ -101,8 +129,8 @@ daily_link_params <<- data.frame(
     "daily_link_start", "daily_link_end"
   ),
   default_values = c(
-    "link", "normal", 400, 200, 0.9, 4, 100, 1, 1, -0.005, 20,
-    0.2, 1, 0.001, 5, "10/03/1982", "10/01/1983"
+    "link", "normal", 400, 100, 0.9, 0, 0.1, 2, 0.9, -0.005, 15,
+    1, 0.9, 0.001, 1, "10/03/1982", "10/01/1983"
   ),
   input_type = c(
     "tab", "text", "numeric", "numeric", "numeric", "numeric",
@@ -134,9 +162,9 @@ daily_dist_params <<- data.frame(
     "daily_dist_start", "daily_dist_end"
   ),
   default_values = c(
-    "distribution", "normal", 400, 200, 0.9, 0, 0.1, "normal",
-    12, 2, 0.9, 0, "normal", 4, 1, 0.9, 0, "10/03/1982",
-    "10/30/1982"
+    "distribution", "normal", 400, 100, 0.9, 0, 0.1, "normal",
+    15, 2, 0.9, 0, "normal", 1, 1, 0.9, 0, "10/03/1982",
+    "01/01/1983"
   ),
   input_type = c(
     "tab", "text", "numeric", "numeric", "numeric", "numeric",
@@ -159,19 +187,18 @@ shinyServer(function(input, output, session) {
   })
 
   has_rendered_daily_conditions <<- FALSE
+  has_rendered_habitat <<- FALSE
+  has_rendered_interactions <<- FALSE
 
   # The config file can be anywhere
   volumes <- getVolumes()
-  handle_absolute_file_picker(
-    input, session, "picker_config_file", "config_file",
-    volumes(), "txt", config_file_path
-  )
 
   # Use a base directory of the config file for everything else.
   picker_roots <- c(fhast_base_folder)
   names(picker_roots) <- c("fhast_base_folder")
 
   output$habitat_params_ui <- renderUI({
+    has_rendered_habitat <<- TRUE
     render_and_load_tab(
       habitat_params, input$hab_params_file, session, input,
       picker_roots
@@ -179,6 +206,7 @@ shinyServer(function(input, output, session) {
   })
 
   output$interactions_params_ui <- renderUI({
+    has_rendered_interactions <<- TRUE
     render_and_load_tab(
       interactions_params, input$interaction_file, session, input,
       picker_roots
@@ -205,6 +233,16 @@ shinyServer(function(input, output, session) {
       picker_roots
     )
   })
+  
+  handle_absolute_file_picker(
+    input, session, "picker_config_file", "config_file",
+    volumes(), "txt", config_file_path
+  )
+  
+  handle_absolute_folder_picker(
+    input, session, "picker_netlogo_folder", "netlogo_folder",
+    volumes(), netlogo_path
+  )
 
   handle_folder_picker(
     input, session, "picker_raster_folder", "raster_folder",
@@ -255,6 +293,11 @@ shinyServer(function(input, output, session) {
     input, session, "picker_aoi_file", "aoi_file", picker_roots,
     "shp", aoi_path
   )
+  
+  handle_file_picker(
+    input, session, "picker_tree_growth_file", "tree_growth_file",
+    picker_roots, "csv", tree_growth_path
+  )
 
   handle_file_picker(
     input, session, "picker_daily_con_hydro_file",
@@ -302,14 +345,19 @@ shinyServer(function(input, output, session) {
     source(here("scripts","R","parameters","load_convert_parameters.R"))
     # Run the model
     source(here("scripts", "R", "main", "run_model.R"))
-    source(here("scripts", "R", "habitat_summary", "scripts",
-                "make_habitat_summary.R"))
+    
+    results <- run_netlogo_model()
 
     report_name <- input$report_name
     if (!nzchar(report_name)) {
       report_name <- "FHAST_report"
     }
     # Generate reports
+    
+    # Make the habitat summary file
+    source(here("scripts", "R", "habitat_summary","scripts", "make_habitat_summary.R")) 
+    # Make the ABM summary file
+    source(here("scripts", "R", "abm_summary", "abm_output.R"))
     rmarkdown::render(
       here(
         "scripts", "R", "habitat_summary", "scripts",
@@ -472,6 +520,21 @@ render_tab <- function(tab_data, file_path, session, input, picker_roots) {
         tab_data[i, "default_values"]
       )
     }
+    if (tab_data[i, "input_type"] == "hab_multi_select") {
+      ui_list <- list(
+        ui_list,
+        checkboxGroupInput(
+          tab_data[i, "input_names"],
+          str_to_title(tab_data[i, "file_names"]),
+          choices = habitat_options,
+          selected = lapply(str_split(tab_data[i, "default_values"], ",", simplify=TRUE), str_trim),
+          inline = FALSE,
+          width = NULL,
+          choiceNames = NULL,
+          choiceValues = NULL
+        )
+      )
+    }
   }
   return(tagList(ui_list))
 }
@@ -488,6 +551,9 @@ save_tab_file <- function(input, tab_data, file_path) {
     }
     if (tab_data[i, "input_type"] == "date") {
       values_vector <- append(values_vector, format(input[[name]], "%m/%d/%Y"))
+    }
+    if (tab_data[i, "input_type"] == "hab_multi_select") {
+      values_vector <- append(values_vector, paste0(input[[name]], collapse=","))
     }
   }
 
@@ -529,6 +595,13 @@ update_ui_with_file <- function(session, tab_data, file_data) {
         )
       )
     }
+    if (tab_data[i, "input_type"] == "hab_multi_select") {
+      updateCheckboxGroupInput(
+        session = session,
+        tab_data[i, "input_names"],
+        selected = lapply(str_split(file_data[tab_data[i, "file_names"], ], ",", simplify=TRUE), str_trim)
+      )
+    }
     if (tab_data[i, "input_type"] == "tab") {
       updateTabsetPanel(
         session = session, inputId = tab_data[i, "input_names"],
@@ -548,6 +621,24 @@ load_tab_file <- function(file_path, session, tab_data) {
   update_ui_with_file(session, tab_data, file_data)
 }
 
+handle_absolute_file_picker <- function(input, session, picker_name,
+                                        txt_box_name, picker_roots, file_type,
+                                        default) {
+  updateTextInput(session, txt_box_name, value = default)
+  observe({
+    shinyFileChoose(input, picker_name,
+                    roots = picker_roots,
+                    filetypes = c(file_type)
+    )
+    selected_file <- parseFilePaths(picker_roots, input[[picker_name]])
+    if (length(selected_file$datapath) > 0) {
+      updateTextInput(session, txt_box_name,
+                      value = unname(selected_file$datapath)
+      )
+    }
+  })
+}
+
 handle_file_picker <- function(input, session, picker_name, txt_box_name,
                                picker_roots, file_type, default) {
   rel_path <- make_fhast_relative_path(default)
@@ -561,6 +652,19 @@ handle_file_picker <- function(input, session, picker_name, txt_box_name,
     if (length(selected_file$datapath) > 0) {
       rel_path <- make_fhast_relative_path(unname(selected_file$datapath))
       updateTextInput(session, txt_box_name, value = rel_path)
+    }
+  })
+}
+
+handle_absolute_folder_picker <- function(input, session, picker_name,
+                                          text_box_name, picker_roots,
+                                          default) {
+  updateTextInput(session, text_box_name, value = default)
+  observe({
+    shinyDirChoose(input, picker_name, roots = picker_roots)
+    selected_dir <- parseDirPath(picker_roots, input[[picker_name]])
+    if (length(selected_dir) > 0) {
+      updateTextInput(session, text_box_name, value = selected_dir)
     }
   })
 }
@@ -581,9 +685,16 @@ handle_folder_picker <- function(input, session, picker_name, text_box_name,
 
 do_save <- function(input) {
   save_config(input)
-  save_tab_file(input, interactions_params, input$interaction_file)
+  if (has_rendered_interactions) {
+    save_tab_file(input, interactions_params, input$interaction_file)
+  }
   save_csv_file(fish_params_df, input$fish_params_file)
-  save_tab_file(input, habitat_params, input$hab_params_file)
+  # We can't tell the difference between a multiselect with nothing selected
+  # and a multiselect that hasn't been rendered (and data is loaded when the
+  # tab is rendered). So We keep track of if we rendered the habitat tab.
+  if (has_rendered_habitat) {
+    save_tab_file(input, habitat_params, input$hab_params_file)
+  }
   save_daily_conditions(input)
   save_csv_file(pred_params_df, input$predator_file)
 }
@@ -593,8 +704,8 @@ save_config <- function(input) {
     file_path, input$fish_pop_file, input$daily_file,
     input$fish_params_file, input$grid_center_file,
     input$grid_top_file, input$cover_file, input$canopy_cover_file,
-    input$hab_params_file, input$interaction_file, input$predator_file,
-    input$raster_folder, input$aoi_file
+    input$tree_growth_file, input$hab_params_file, input$interaction_file,
+    input$predator_file, input$raster_folder, input$aoi_file
   )
 }
 
@@ -638,6 +749,9 @@ load_config <- function(config_file, session) {
     updateTextInput(session, "predator_file",
       value = make_fhast_relative_path(predator_path)
     )
+    updateTextInput(session, "tree_growth_file",
+                    value = make_fhast_relative_path(tree_growth_path)
+    )
   }
 }
 
@@ -645,13 +759,13 @@ save_daily_conditions <- function(input) {
   if (!has_rendered_daily_conditions) {
     return()
   }
-  switch(input$daily_type,
-    Hydrograph = save_tab_file(
+  switch(tolower(input$daily_type),
+    hydrograph = save_tab_file(
       input, daily_hydrograph_params,
       input$daily_file
     ),
-    Link = save_tab_file(input, daily_link_params, input$daily_file),
-    Distribution = save_tab_file(input, daily_dist_params, input$daily_file),
+    link = save_tab_file(input, daily_link_params, input$daily_file),
+    distribution = save_tab_file(input, daily_dist_params, input$daily_file),
   )
 }
 
@@ -762,22 +876,4 @@ csv_handle_numeric_param <- function(input, csv_identifier, col_name, row_name,
     df_update_value(row_name, col_name, input[[numeric_input_name]])
   })
   return(numericInput(numeric_input_name, row_name, cur_value))
-}
-
-handle_absolute_file_picker <- function(input, session, picker_name,
-                                        txt_box_name, picker_roots, file_type,
-                                        default) {
-  updateTextInput(session, txt_box_name, value = default)
-  observe({
-    shinyFileChoose(input, picker_name,
-      roots = picker_roots,
-      filetypes = c(file_type)
-    )
-    selected_file <- parseFilePaths(picker_roots, input[[picker_name]])
-    if (length(selected_file$datapath) > 0) {
-      updateTextInput(session, txt_box_name,
-        value = unname(selected_file$datapath)
-      )
-    }
-  })
 }

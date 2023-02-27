@@ -1,7 +1,12 @@
 # function to do the fish species calculations #
 # the over all function
-calculate_fish_summary <- function(df, species_id, parameter_list, pct_cover_model, gape_params, turbidity, script_params) {
-
+calculate_fish_summary <- function(df,
+                                   species_id,
+                                   parameter_list,
+                                   pct_cover_model,
+                                   gape_params,
+                                   current,
+                                   script_params) {
   # Get the example fish
   adult_length <- parameter_list$eg_adult_length[species_id]
   juv_length <- parameter_list$eg_juvenile_length[species_id]
@@ -11,18 +16,18 @@ calculate_fish_summary <- function(df, species_id, parameter_list, pct_cover_mod
   lifestage_list <- list("adult", "juvenile")
   
   # get some predator parameters
-  a <- gape_params %>% pull("a")
-  B <- gape_params %>% pull("B")
+  a <- gape_params %>% pull("gape_a")
+  B <- gape_params %>% pull("gape_b")
  
   # Do some predator calculations
   min_prey_size <- calc_prey_length(a = a, B = B, pred_length = 150)
   
-  turb_bonus <- calc_turbidity_bonus(turbidity,
+  turb_bonus <- calc_turbidity_bonus(current$turb_ntu,
                                      habitat_parm$turbidity_int,
                                      habitat_parm$turbidity_slope)
 
   df_out <- lifestage_list %>%
-    map2_dfr(length_list, ~ calc_one_lifestage(df, species_id, parameter_list, .x, .y)) %>%
+    map2_dfr(length_list, ~ calc_one_lifestage(df, species_id, parameter_list, current, .x, .y)) %>%
     mutate(pred_length = replace_na(pred_length, 0),
            prey_length = calc_prey_length(a = a, B = B, pred_length),
            total_pred_prop_area = if_else(
@@ -50,54 +55,56 @@ calculate_fish_summary <- function(df, species_id, parameter_list, pct_cover_mod
 }
 
 # function to do calculations for each lifestage
-calc_one_lifestage <- function(df, id, pl, ls, length) {
+calc_one_lifestage <- function(df, id, pl, current, ls, length) {
 
-  wall_factor = ifelse(pl$fish_benthic[id] == 0,
-                       1,
-                       # all the following hard coded constants from the relation sshif for the law of the wall
-                       0.07/0.41*log((habitat_parm$ben_vel_height/habitat_parm$d84_size)*(30/3.5)))
+  # If the fish is benthic get it's experienced velocity 
+  wall_factor = ifelse(pl$benthic_fish[id] == 0, 1,
+                       # all the following hard coded constants from the
+                       # relationship for the law of the wall
+                       habitat_parm$base_wall_factor)
+  
+  # Make a flag for the smolt flag in the metabolic equation
+  smolt_status = ifelse(ls == "adult", 1, 0)
   
   # Calculate the fish mass
-  fish_mass = pl$length_to_mass_a[id] *
-    length^pl$length_to_mass_b[id]
+  fish_mass = pl$length_mass_a[id] *
+    length^pl$length_mass_b[id]
 
   # Check if they eat
-  feeding_flag = ifelse(ls == "adult" & pl$adult_feeding[id] == 0,
-                        0, 1)
+  feeding_flag = ifelse(ls == "adult" & pl$adult_feeding[id] == 0, 0, 1)
 
-  # Get the reach temp
-  reach_temp = df$temp[1]
-  
-  # Get reach turbidity
-  reach_tur = df$turb[1]
-  
   # Calculate the cmax temperature function value
-  cmax_temp_value = (1 + (pl$fish_cmax_C[id] - reach_temp)/(pl$fish_cmax_C[id] - pl$fish_cmax_D[id]))*
-    (reach_temp/pl$fish_cmax_C[id])^(pl$fish_cmax_C[id] / (pl$fish_cmax_C[id] - pl$fish_cmax_D[id]))
-  
+  cmax_temp_value = calc_beta_sig(parm_A = pl$cmax_c[id],
+                                  parm_B = pl$cmax_d[id],
+                                  temp = current$temp_c)
+
   # Calculate cmax
-  cmax = pl$fish_cmax_A[id] * fish_mass^(1 + pl$fish_cmax_B[id]) *  cmax_temp_value
+  cmax = pl$cmax_a[id] * fish_mass^(1 + pl$cmax_b[id]) *  cmax_temp_value
   
   # Calculate the turbidity function
-  turbidity_fun = ifelse(reach_tur <= pl$fish_turbid_threshold[id], 1,
-                         pl$fish_turbid_min[id] + (1 - pl$fish_turbid_min[id]) *
-                           exp(pl$fish_turbid_exp[id] *
-                                 (reach_tur - pl$fish_turbid_threshold[id])))
+  turbidity_fun = ifelse(current$turb_ntu <= pl$turbid_threshold[id], 1,
+                         pl$turbid_min[id] + (1 - pl$turbid_min[id]) *
+                           exp(pl$turbid_exp[id] *
+                                 (current$turb_ntu - pl$turbid_threshold[id])))
   # Calculate detection distance
-  detection_dist = (pl$fish_react_dist_A[id] +
-                      pl$fish_react_dist_B[id] * length) * turbidity_fun
+  detection_dist = (pl$react_dist_a[id] +
+                      pl$react_dist_b[id] * length) * turbidity_fun
   
-  # Calculate max swim speed
-  max_swim_speed = pl$fish_max_swim_param_A[id] * length +
-    pl$fish_max_swim_param_B[id] *
-    pl$fish_max_swim_param_C[id] * reach_temp^2 +
-    pl$fish_max_swim_param_D[id] * reach_temp +
-    pl$fish_max_swim_param_E[id]
+  # Calculate max swim speed temperature function value
+  max_swim_speed_temp = calc_beta_sig(parm_A = pl$ucrit_c[id],
+                                       parm_B = pl$ucrit_d[id],
+                                       temp = current$temp_c)
+  
+  max_swim_speed = (pl$ucrit_a[id] / length +
+    pl$ucrit_b[id]) *
+    max_swim_speed_temp*length/100
 
   df_out <- df %>%
     # Do the metabolic calculations
     mutate(
-      # reduce velocity for benthic fish and in coiver fish if habitat is avaiabel
+      is_benthic = pl$benthic_fish[id],
+      # reduce velocity for benthic fish and in cover fish if habitat is available
+      # benthic fish don't use
       shelter_fraction = ifelse(length^2/1e4 <= wetted_area*pct_cover &
                                   wall_factor == 1,
                                 habitat_parm$shelter_frac,
@@ -106,36 +113,44 @@ calc_one_lifestage <- function(df, id, pl, ls, length) {
       species = pl$specie[id],
       life_stage = ls,
       fish_length = length,
-      fish_met_log = pl$met_int[id] +
-        pl$met_lm[id] * log(fish_mass) +
-        pl$met_lt[id] * log(temp) +
-        # experienced_vel is in body lengths/sec
-        pl$met_v[id] * experienced_vel / (fish_length/100) +
-        pl$met_lm_lt[id] * log(fish_mass) * log(temp) +
-        pl$met_lm_v[id] * log(fish_mass) * experienced_vel / (fish_length/100) +
-        pl$met_sqv[id] * sqrt(experienced_vel / (fish_length/100)) +
-        pl$met_lm_sqv[id] * log(fish_mass) * sqrt(experienced_vel / (fish_length/100)) +
-        pl$met_t[id] * temp +
-        pl$met_lm_t[id] * log(fish_mass) * temp,
-      fish_met_j_per_day = exp(fish_met_log), 
+      fish_met_j_per_day_active = calc_met(params = pl,
+                                    fish_index = id,
+                                    length = length,
+                                    temp = temp,
+                                    velocity = experienced_vel,
+                                    smolt_flag = smolt_status),
+      fish_met_j_per_day_passive = calc_met(params = pl,
+                                           fish_index = id,
+                                           length = length,
+                                           temp = temp,
+                                           velocity = 0,
+                                           smolt_flag = smolt_status),
+      # benthic fish are assumed to be active at night 
+      fish_met_j_per_day_ur = ifelse(is_benthic == 0,
+                                  fish_met_j_per_day_active * (current$photoperiod) +
+                                    fish_met_j_per_day_passive * (1 - current$photoperiod),
+                                  fish_met_j_per_day_active * (1 - current$photoperiod) +
+                                    fish_met_j_per_day_passive * (current$photoperiod)),
+      fish_met_j_per_day = ifelse(experienced_vel>max_swim_speed, NA, fish_met_j_per_day_ur),
       # Do the food intake calculations
       capture_area = 2 * detection_dist * pmin(depth, detection_dist),
-      capture_success = calc_logistic(parm_10 = pl$fish_capture_1[id],
-                                      parm_90 = pl$fish_capture_9[id],
+      capture_success = calc_logistic(parm_10 = pl$capture_V1[id],
+                                      parm_90 = pl$capture_V9[id],
                                       value = velocity/max_swim_speed),
-      drift_eaten = capture_success *capture_area * habitat_parm$hab_drift_con * velocity *86400,
-      ben_eaten = fish_mass * pl$fish_fr_A[id] * habitat_parm$hab_bentic_ene /
-        (1 + pl$fish_fr_B[id] * habitat_parm$hab_bentic_con),
+      drift_eaten = capture_success *capture_area * habitat_parm$hab_drift_con * velocity *
+        86400 * current$photoperiod,
+      ben_eaten = pi * pl$feeding_speed[id] * 86400 * (1 - current$photoperiod) /
+        log(pl$feeding_speed[id] * (1 - current$photoperiod) * 86400) *
+        length^2/1E4 * habitat_parm$hab_bentic_con,
       ben_avaiable = habitat_parm$hab_bentic_con *
         ben_food_fra * wetted_area,
       ben_intake = pmin(ben_eaten, ben_avaiable, cmax),
       drift_intake = pmin(drift_eaten, cmax),
       intake_ben_energy = ben_intake * habitat_parm$hab_bentic_ene,
       intake_drift_energy = drift_intake * habitat_parm$hab_drift_ene,
-      energy_intake = intake_ben_energy *pl$fish_benthic[id] + 
-        intake_drift_energy * (1 - pl$fish_benthic[id]),
+      energy_intake = intake_ben_energy *is_benthic + 
+        intake_drift_energy * (1 - is_benthic),
       net_energy = energy_intake * feeding_flag - fish_met_j_per_day) 
-
 }
 
 # function to calculate probability of surviving an encounter with a predator

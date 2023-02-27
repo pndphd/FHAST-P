@@ -23,6 +23,7 @@ initialize_fhast <- function(file_path) {
       "base_inputs/grid_folder/top_point.shp",
       "base_inputs/cover.shp",
       "base_inputs/canopy.shp",
+      "base_inputs/tree_growth_parameters.csv",
       "base_inputs/habitat.txt",
       "base_inputs/interactions.txt",
       "base_inputs/predator_params_input.csv",
@@ -52,6 +53,7 @@ initialize_fhast <- function(file_path) {
                                input_data["grid top point", ])
   cover_path <<- get_path(fhast_base_folder, input_data["cover", ])
   canopy_path <<- get_path(fhast_base_folder, input_data["canopy", ])
+  tree_growth_path <<- get_path(fhast_base_folder, input_data["tree growth", ])
   hab_path <<- get_path(fhast_base_folder, input_data["habitat parameters", ])
   interaction_path <<- get_path(fhast_base_folder,
                                input_data["interaction parameters", ])
@@ -80,24 +82,27 @@ initialize_fhast <- function(file_path) {
     "#F0E442", "#56B4E9", "#E69F00",
     "#0072B2", "#009E73", "#CC79A7"
   )
+  
+  # Set default plot width
+  plot_widths <<- 5
 
   # Set the random seed
   set.seed(6806665)
 }
 
 write_config_file <- function(file_path, fish_pop, daily, fish_params, line,
-                            point, cover, canopy, hab_params,
+                            point, cover, canopy, tree_growth, hab_params,
                             interaction_params, predator, raster, aoi) {
   obj <- data.frame(
     names = c(
       "fish population", "daily conditions",
       "fish parameters", "grid centerline", "grid top point",
-      "cover", "canopy", "habitat parameters", "interaction parameters",
+      "cover", "canopy", "tree growth", "habitat parameters", "interaction parameters",
       "predator parameters", "raster folder", "aoi"
     ),
     paths = c(
       fish_pop, daily, fish_params, line, point,
-      cover, canopy, hab_params, interaction_params, predator,
+      cover, canopy, tree_growth, hab_params, interaction_params, predator,
       raster, aoi
     )
   )

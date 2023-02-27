@@ -230,11 +230,12 @@ make_daily_histogram_plot = function(output_data) {
 }
 
 # Make the function for histogram plots
-make_hist_plot = function(data_in, variabel, legend, caption = NA){
+make_hist_plot = function(data_in, variabel, legend, caption = ""){
   out_hist_plot = ggplot(data = data_in, aes_string(variabel)) +
     theme_classic(base_size = 20) +
     theme(axis.title.y=element_blank(),
           axis.text.y=element_blank(),
+          axis.ticks.y=element_blank(), 
           plot.caption = element_text(hjust = 0, size = 15)) +
     geom_histogram(aes(y=after_stat(density)),
                    bins = 30,

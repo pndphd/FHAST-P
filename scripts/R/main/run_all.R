@@ -4,7 +4,7 @@
 # and then run the various fast scripts in order
 ########################################
 
-##### Run the initilization scripts #####
+##### Run the initialization scripts #####
 # install and load the here package if necessary
 if(!require(c("here"), character.only = T)){
   install.packages(package)
@@ -15,6 +15,7 @@ source(here("scripts","R","main","load_libraries.R"))
 
 # Load some common functions used in running FHAST
 source(here("scripts", "R", "main", "fhast_file_functions.R"))
+source(here("scripts", "R", "main", "fhast_math_functions.R"))
 
 # Load some plotting functions
 source(here("scripts", "R", "main", "plot_functions.R"))
@@ -27,7 +28,19 @@ source(here("scripts","R","main","default_initialization.R"))
 
 # load all the input files and make basic parameter files
 # also do some basic checking of files
+# need to load pathfinder finding first for adult parameters
+source(here("scripts","R","migration", "R", "pathfinding_functions.R"))
 source(here("scripts","R","parameters","load_convert_parameters.R"))
 
 ##### Run the calculation scripts #####
 source(here("scripts","R","main","run_model.R"))
+
+
+############################
+##### RUN NETLOGO HERE #####
+############################
+source(here("scripts", "R", "netlogo", "NetLogo_Controller.R"))
+results <- run_netlogo_model()
+
+##### Run the post processing scripts #####
+source(here("scripts","R","main","run_post.R"))

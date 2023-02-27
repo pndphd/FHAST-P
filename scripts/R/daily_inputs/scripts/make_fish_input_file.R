@@ -14,6 +14,11 @@ write.csv(fish_schedule,
           file = here(temp_folder, "NetLogo", "daily_fish_input.csv"),
           row.names = FALSE)
 
+# make one file to for output
+write.csv(x = fish_schedule,
+          file = here(output_folder, "daily_fish_processed.csv"),
+          row.names = FALSE)
+
 ##### Make a plot #####
 fish_plot_data <- fish_schedule %>%
   mutate(Group = str_c(species, " ", lifestage))

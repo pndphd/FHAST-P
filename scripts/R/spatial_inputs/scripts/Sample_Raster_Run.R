@@ -7,6 +7,7 @@ area = raster::area
 
 # load the functions for this script
 source(here("scripts","R","spatial_inputs","scripts","Sample_Raster_Functions.R"))
+source(here("scripts","R","spatial_inputs","scripts","make_migration_path.R"))
 
 # inputs
 # temp_river_grid_path, raster_folder_files
@@ -85,12 +86,22 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
                                 type = "depth")
   
   # Sample the grid over the raster stack
-  sampeled_grid = sample_grid(stack = raster_stack_v,
+  sampeled_grid_both = sample_grid(stack = raster_stack_v,
                               grid = river_grid,
                               flows = d_values,
                               type = "velocity") %>% 
     left_join(sampeled_grid_d, by = c("lat_dist", "distance", "area"))
-
+  
+  # Add in the accessible migration cells for each species
+  # Find the flow level
+  sampeled_grid =  map2_dfc(.x = fish_parm$specie,
+                           .y = fish_parm$adult_migration_min_flow,
+                           .f = ~ make_migration_paths(flows = d_values,
+                                                       flow_level = .y,
+                                                       species = .x,
+                                                       df_in = sampeled_grid_both)) %>% 
+    bind_cols(sampeled_grid_both)
+  
   ##### Save Outputs #####
   # write the data
   write.csv(sampeled_grid,

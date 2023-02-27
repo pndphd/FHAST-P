@@ -13,9 +13,10 @@ simplfly_tolarence = 5
 ##### Load functions #####
 # Load Libraries and some base parameters
 source(here("scripts","R","shade_model","scripts","shade_functions.R"))
+source(here("scripts","R","shade_model","scripts","growth_functions.R"))
 
 # inputs
-# daily_file, river_grid, canopy_shape
+# daily_file, river_grid, canopy_shape, tree_growth_path
 # outputs
 # shade_file.rds, daily_input_file.csv
 
@@ -25,14 +26,19 @@ temp_river_grid_path <- here(temp_folder, "R",
                                    habitat_parm$resolution,
                                    "_", habitat_parm$buffer,
                                    ".rds"))
-temp_shade_file_path <- here(temp_folder, "R", "shade_file.rds")
+temp_shade_file_path <- here(temp_folder, "R", paste0("shade_file_", habitat_parm$veg_growth_years,".rds"))
 temp_netlogo_daily_input_path <- here(temp_folder,"NetLogo","daily_input_file.csv")
 
-input_output_file_paths <- c(canopy_path, temp_daily_file_path, temp_river_grid_path, temp_shade_file_path, temp_netlogo_daily_input_path)
+input_output_file_paths <- c(canopy_path, tree_growth_path,
+                             temp_daily_file_path,
+                             temp_river_grid_path,
+                             temp_shade_file_path,
+                             temp_netlogo_daily_input_path)
 
 hash_storage <-here(temp_folder, "calculate_shade_hashes.txt")
 
 if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
+
   ##### Load Files #####
   # load the daily files
   daily_file <- read.csv(file = temp_daily_file_path)
@@ -49,9 +55,11 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
   # simplify it to speed up
   shade_shape = canopy_shape %>% 
     st_intersection(clip_mask) %>% 
-    st_simplify(dTolerance = simplfly_tolarence) %>% 
     # Filter out empty ones
     filter(!st_is_empty(.)) %>% 
+    grow_trees(parms = tree_growth_parms,
+               years = habitat_parm$veg_growth_years) %>%
+    st_simplify(dTolerance = simplfly_tolarence) %>%
     group_by(height) %>%
     summarize() %>% 
     ungroup()
@@ -71,6 +79,9 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
   # save the files
   saveRDS(result, file = temp_shade_file_path)
   
+  walk(.x = seq(1,12,1), .f = ~write_sf(result[[.x]], here(output_shape_folder, paste0("shade_shape", .x, ".shp")),
+           driver ="ESRI Shapefile"))
+
   write.csv(x = daily_w_photo_period,
             file = temp_netlogo_daily_input_path,
             row.names = FALSE)

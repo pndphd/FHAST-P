@@ -11,8 +11,14 @@ output_data <- load_daily_conditions(daily_inputs)
 daily_input_file = output_data %>% 
   mutate(month = month(as_date(date, format = "%m/%d/%Y")))
 
+# make one file to be used in the rest of the process
 write.csv(x = daily_input_file,
           file = here(temp_folder,"R","daily_input_file.csv"),
+          row.names = FALSE)
+
+# make one file to for output
+write.csv(x = daily_input_file,
+          file = here(output_folder, "daily_conditions_processed.csv"),
           row.names = FALSE)
 
 ##### Plots #####

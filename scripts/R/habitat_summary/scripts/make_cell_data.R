@@ -4,7 +4,7 @@ make_cell_data <- function(){
     #take out columns that are duplicated
     select(-area) %>%
     left_join(raster_file, by = c("distance", "lat_dist"))
-  
+
   # Make the data just one depth, vel and wetted area per flow per cell
   input_variables <- c("mean.D", "mean.V", "wetd.")
   output_variables <- c("depth", "velocity", "wetted_fraction")

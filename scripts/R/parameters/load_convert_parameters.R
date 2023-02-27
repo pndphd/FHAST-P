@@ -10,6 +10,7 @@ source(here("scripts", "R", "parameters", "load_convert_parameters_functions.R")
 input_paths = list(grid_center_line_path,
                    grid_top_marker_path,
                    canopy_path,
+                   tree_growth_path,
                    cover_path,
                    daily_path,
                    fish_population_path,
@@ -25,6 +26,7 @@ walk(input_paths, ~check_file_exists(.x))
 grid_center_line <- st_zm(st_read(grid_center_line_path, quiet = TRUE))
 grid_top_marker <- st_zm(st_read(grid_top_marker_path, quiet = TRUE))
 canopy_shape <- st_read(canopy_path, quiet = TRUE) 
+tree_growth_parms_in <- read.csv(file = tree_growth_path, sep = ",", header = TRUE)
 cover_shape <- st_read(cover_path, quiet = TRUE) 
 daily_inputs <- load_text_file(daily_path)
 fish_daily_inputs <- read.csv(file = fish_population_path, sep = ",", header = TRUE) %>%
@@ -33,7 +35,8 @@ fish_parm_temp <- read_csv(file = fish_parameters_path,
                            col_types = cols(.default = "d", species = "c"))
 pred_parm_temp <- read_csv(file = predator_path,
                            col_types = cols(.default = "d", species = "c")) %>%
-  rename(term = species)
+  rename(term = species) %>% 
+  mutate(term = str_remove(term, "pred_glm_"))
 hab_parm_temp <- load_text_file(hab_path)
 int_parm_temp <- load_text_file(interaction_path)
 
@@ -56,14 +59,42 @@ fish_parm <- fish_parm_temp %>%
   rename(species_temp = species) %>% 
   pivot_longer(cols=c(-species_temp), names_to="specie")%>%
   pivot_wider(names_from=c(species_temp)) %>% 
-  as.list()
+  as.list() %>% 
+  calculate_adult_parameters() %>% 
+  append(get_swim_speed_parameters_for_all_species(.))
+
+# tree growth parameters pivot longer and wider to format
+tree_growth_parms <- tree_growth_parms_in %>% 
+  pivot_longer(cols = !starts_with("species"), names_to = c ("item")) %>% 
+  pivot_wider(names_from = "species") %>% 
+  rename(species = item) %>% 
+  mutate(species = str_replace(species, "[.]", " "),
+         d_max = as.numeric(d_max),
+         h_max = as.numeric(h_max),
+         g = as.numeric(g),
+         a = as.numeric(a),
+         b = as.numeric(b),
+         c = as.numeric(c),
+         d = as.numeric(d),)
 
 # habitat and interaction parameters
+turbidity_params <- convert_logistic_parameters(
+  int_parm_temp["turbidity cover 10", ],
+  int_parm_temp["turbidity cover 90", ]
+)
+
+dis_to_cover_params <- convert_logistic_parameters(
+  int_parm_temp["distance to cover 10", ],
+  int_parm_temp["distance to cover 90", ]
+)
+
 habitat_parm <- tibble(
   # from the habitat file
   hab_bentic_ene = hab_parm_temp["benthic food energy density", ],
   hab_drift_ene = hab_parm_temp["drift food energy density", ],
   hab_benthic_hab = hab_parm_temp["benthic food habitat", ],
+  cover_hab = hab_parm_temp["cover habitat", ],
+  small_cover_hab = hab_parm_temp["small cover habitat", ],
   hab_drift_con = hab_parm_temp["drift food density", ],
   hab_bentic_con = hab_parm_temp["benthic food density", ],
   vel_cutoff = hab_parm_temp["velocity cutoff", ],
@@ -71,7 +102,7 @@ habitat_parm <- tibble(
   resolution = hab_parm_temp["resolution", ],
   buffer = hab_parm_temp["buffer", ],
   pred_per_area = hab_parm_temp["predators per area", ],
-  superind_ratio = hab_parm_temp["superindividual ratio", ],
+  veg_growth_years = hab_parm_temp["vegetation growth years", ],
   # from the interaction file
   shelter_frac = int_parm_temp["cover velocity fraction", ],
   reaction_distance = int_parm_temp["temperature predator area baseline", ],
@@ -80,22 +111,27 @@ habitat_parm <- tibble(
   sqrt_pct_cover = int_parm_temp["percent cover root", ],
   pct_cover = int_parm_temp["percent cover slope", ],
   sqrt_pct_cover_x_pct_cover = int_parm_temp["percent cover 3-2 root", ],
-  dis_to_cover_m = int_parm_temp["distance to cover slope", ],
-  dis_to_cover_int = int_parm_temp["distance to cover intercept", ],
-  turbidity_int = int_parm_temp["turbidity intercept", ],
-  turbidity_slope = int_parm_temp["turbidity slope", ],
+  dis_to_cover_m = dis_to_cover_params$log_b,
+  dis_to_cover_int = dis_to_cover_params$log_a,
+  turbidity_int = turbidity_params$log_a,
+  turbidity_slope = turbidity_params$log_b,
   d84_size = int_parm_temp["d84 size", ],
+  superind_ratio = int_parm_temp["superindividual ratio", ],
   ben_vel_height = int_parm_temp["benthic velocity height", ]) %>% 
   # make everything which is a number a doubble
-  mutate(across(!c(hab_benthic_hab), ~as.numeric(.))) 
+  mutate(across(!c(hab_benthic_hab, cover_hab, small_cover_hab), ~as.numeric(.)))  %>% 
+  # Do a calculation for the law of the wall
+  # all the following hard coded constants from the
+  # relationship for the law of the wall
+  mutate(base_wall_factor = 0.07/0.41*log((ben_vel_height/d84_size)*(30/3.5)))
 
 # Predator parameters
 # make lists of parameters per file, so the dataframe can be separated appropriately
-log_model_par_names <- c("intercept_glm", "shade", "veg",
+log_model_par_names <- c("int", "shade", "veg",
                          "wood", "depth", "velocity", "substrate")
-temp_model_par_names <- c("intercept_C", "temperature_C")
-gape_par_names <- c("a", "B")
-length_dist_par_names <- c("meanlog", "sdlog")
+temp_model_par_names <- c("area_pred_10", "area_pred_90")
+gape_par_names <- c("gape_a", "gape_b")
+length_dist_par_names <- c("pred_length_mean", "pred_length_sd")
 
 # combined all parameter lists into a list of lists to use with map
 par_lol <- list(log_model_par_names,
@@ -108,8 +144,20 @@ models_separated <- map(par_lol, ~ pred_parm_temp %>%
                           filter(term %in% .x))
 
 # reshape data depending on needs
-longer <- map(list(models_separated[[1]], models_separated[[4]]), params_pivot_longer)
-wider <- map(list(models_separated[[2]], models_separated[[3]]), params_pivot_wider)
+longer <- map(
+  list(
+    models_separated[[1]], 
+    models_separated[[4]]
+    ), 
+  params_pivot_longer
+  )
+wider <- map(
+  list(
+    models_separated[[2]], 
+    models_separated[[3]]
+    ), 
+  params_pivot_wider
+  )
 
 # make a list of lists into a single list
 df_list <- flatten(list(longer, wider))
@@ -118,14 +166,27 @@ df_list <- flatten(list(longer, wider))
 df_list[[2]] <- df_list[[2]] %>% 
   pivot_wider(names_from = "term", values_from = "estimate")
 
-# variabel names
-pred_output_names <- list("pred_model_params",
-                          "pred_length_data",
-                          "pred_temp_params",
-                          "gape_params")
+# variable names
+pred_output_names <- list(
+  "pred_model_params",
+  "pred_length_data",
+  "pred_temp_params",
+  "gape_params"
+  )
 
 # assign the variables
 walk2(df_list, pred_output_names, make_variables)
+
+# convert logistic parameters in the temperature model
+converted_pred_temperature_par <- convert_logistic_parameters(
+  pred_temp_params$area_pred_10, 
+  pred_temp_params$area_pred_90
+  )
+
+pred_temp_params <- tibble(
+  area_pred_a = converted_pred_temperature_par$log_a,
+  area_pred_b = converted_pred_temperature_par$log_b
+)
 
 ##### Make predator models for habitat summary #####
 # for models related to cover, an lm() object is rebuilt
@@ -164,16 +225,20 @@ write_csv(habitat_parm %>%
             pivot_longer(cols = everything()),
           file = here(temp_folder, "NetLogo", "habitat.csv"))
 
-# Copy over the base predator input file into the temp folder
-file.copy(
-  from = predator_path,
-  to = here(temp_folder, "NetLogo", basename(predator_path)),
-  overwrite = TRUE,
-  copy.date = TRUE) %>%
-  invisible()
+# Add the updated temperature model parameters to the predator params and save in Netlogo temp folder
+pred_temp_params %>% 
+  map_dfr(rep, times = 2) %>% 
+  mutate(species = c("pikeminnow", "bass")) %>% 
+  pivot_longer(cols = area_pred_a:area_pred_b) %>% 
+  pivot_wider(names_from = species, values_from = value) %>% 
+  rename(term = name) %>% 
+  bind_rows(pred_parm_temp) %>% 
+  filter(!(term %in% temp_model_par_names)) %>% 
+  write_csv(here(temp_folder, "NetLogo", basename(predator_path)))
 
 # Save the predation models
 cover_models <- list(pct_cover_model, cover_ben_model)
 cover_model_filenames <- list("pct_cov_convers_model.rds",
                               "dis_to_cov_model.rds")
 walk2(cover_models, cover_model_filenames, write_rds_temp_folder)
+
