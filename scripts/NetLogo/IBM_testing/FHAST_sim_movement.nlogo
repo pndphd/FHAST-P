@@ -104,12 +104,12 @@ globals [
 
   ;; Variables used for drifter fish
   net_energy                       ; The net energy of the cells
-  positive_food_cell_count         ; A variable keeping track of whether a cell with food has been found
+  positive_energy_cell_count       ; A variable keeping track of whether a cell with positive net energy has been found
   all_net_energy                   ; A list of net energy values for the cells in the radius of the random drift cells
-  closest_distance_cell_with_food  ; The random drift cell closest to the agent that has positiver energy
+  closest_cell_with_pos_energy     ; The random drift cell closest to the agent that has positive net energy
   possible_wet_cells_in_radius     ; Cells in the radius of the random drift cells
   sorted_distance_cells            ; The random drift cells sorted in ascending order of distance to the agent
-  no_cell_has_food                 ; A boolean indicating whether any of the random drift cells have food
+  no_cell_has_pos_energy           ; A boolean indicating whether any of the random drift cells have positive net energy
 
   ;; Flow raster variabels
   flow_input_csv      ; The variabel to hole the flow csv
@@ -197,13 +197,13 @@ globals [
   death_pred_table            ; A list of 1s representing deaths caused by predation
   death_condition_table       ; A list of 1s representing deaths caused by poor condition
   smolt_count_table           ; A list of 1s representing smolts that day
-  smolt_length_list           ; A list of smolts' length that day
-  smolt_mass_list             ; A list of smolts' mass that day
-  smolt_condition_list        ; A list of smolts' condition that day
-  nonsmolt_count_table        ; A list of 1s representing nonsmolts that day
-  nonsmolt_length_list        ; A list of nonsmolts' length that day
-  nonsmolt_mass_list          ; A list of nonsmolts' mass that day
-  nonsmolt_condition_list     ; A list of nonsmolts' condition that day
+  ;smolt_length_list           ; A list of smolts' length that day
+  ;smolt_mass_list             ; A list of smolts' mass that day
+  ;smolt_condition_list        ; A list of smolts' condition that day
+  nonmigrants_count_table        ; A list of 1s representing nonsmolts that day
+  nonmigrants_length_list        ; A list of nonsmolts' length that day
+  nonmigrants_mass_list          ; A list of nonsmolts' mass that day
+  nonmigrants_condition_list     ; A list of nonsmolts' condition that day
   migrant_count_table         ; A list of 1s representing migrants that day
   migrant_length_list         ; A list of the migrants' length when it exits the river
   migrant_mass_list           ; A list of the migrants' mass when it exits the river
@@ -216,17 +216,17 @@ globals [
   ;; Daily outputs
   dead_fish_count_table       ; A list of 1s representing all of the dead fish (includes smolts and nonsmolts) that day
   dead_migrants_count_table   ; A list of 1s representing all of the dead migrants that day
-  dead_smolts_count_table     ; A list of 1s representing all of the dead smolts that day
-  dead_nonsmolts_count_table  ; A list of 1s representing all of the dead nonsmolts that day
+  ;dead_smolts_count_table     ; A list of 1s representing all of the dead smolts that day
+  dead_nonmigrants_count_table  ; A list of 1s representing all of the dead nonsmolts that day
   dead_rearing_count_table    ; A list of 1s representing all of the dead nonsmolts with positive growth that day
   total_daily_juveniles       ; Total number of juveniles (smolts and nonsmolts) at any given timestep
   total_daily_dead_fish       ; Total number of dead fish (smolts and nonsmolts) at any given timestep
   total_daily_dead_migrants   ; Total number of dead migrants at any given timestep
-  total_daily_dead_smolts     ; Total number of dead smolts at any given timestep
-  total_daily_dead_nonsmolts  ; Total number of dead nonsmolts at any given timestep
+  ;total_daily_dead_smolts     ; Total number of dead smolts at any given timestep
+  total_daily_dead_nonmigrants  ; Total number of dead nonsmolts at any given timestep
   total_daily_migrants        ; Total number of migrants at any given timestep
-  total_daily_smolts          ; Total number of fish smolting at any given timestep
-  total_daily_nonsmolts       ; Total number of non smolting fish at any given timestep (not including migrating fish)
+  ;total_daily_smolts          ; Total number of fish smolting at any given timestep
+  total_daily_nonmigrants       ; Total number of non smolting fish at any given timestep (not including migrating fish)
   total_daily_drifters        ; Total number of fish drifting at any given timestep
 
   ;; Other global variables/inernal data structures
@@ -336,10 +336,10 @@ patches-own [
   daily_intake               ; Drift intake (g/d), limited by cmax, drift availability etc
   daily_energy_intake        ; Drift intake in J energy
   daily_net_energy           ; Drift intake - total respiration (J/d)
-  total_food_in_cell         ; Total amount of food in the cell (g) (basically equal to the daily net energy, can be negative)
-  total_mort_risk_for_cell   ; Total probability of surviving all of the mortality risks in the cell (total_mort_risk_for_cell/total_food_in_cell)
-  ratio_food_risk            ; Ratio of total mortality risk to the total amount of food in the cell
-  consider_path_risk         ; Path survival multiplied by the ratio food to risk. Used by fish when selecting desination cells while taking into account path risk
+  total_net_energy_in_cell   ; Total net energy in the cell (g) (basically equal to the daily net energy, can be negative)
+  total_mort_risk_for_cell   ; Total probability of surviving all of the mortality risks in the cell (total_mort_risk_for_cell/total_net_energy_in_cell)
+  ratio_net_energy_risk      ; Ratio of total mortality risk to the net energy in the cell
+  consider_path_risk         ; Path survival multiplied by the ratio net energy to risk. Used by fish when selecting desination cells while taking into account path risk
 
   fish_death_hightemp_prob          ; Probability of a fish surviving high temperature
   ratio_swim_speed_max_swim_speed   ; Ratio of swim speed to the max swim speed that can be sustained by fish
@@ -419,7 +419,8 @@ turtles-own [
   fish_smolting_prob_photoperiod  ; Probability of being in the "smolting window"
   fish_smolting_prob_flength      ; Probability of smolting based on length
   overall_smolting_prob           ; Product of prob of smolting based on photoperiod and prob of smolting based on flength
-  fish_outmigration_prob          ; Probability of outmigrating
+  fish_outmigration_prob_velocity ; Probability of outmigrating due to velocity
+  overall_outmigration_prob       ; Overall probability of outmigrating due to changes in velocity, length, and photoperiod
 
   velocity_experience_list        ; List of mean radius cell velocity fish experience each day
   path_survival_list              ; ; A list of path survival probabilities for drifter fish (should only have max two elements inside)
@@ -638,15 +639,15 @@ to set_count_tabels
   set death_condition_table table:make
 
   ; List of various fish variables recorded per day
-  set smolt_count_table table:make
-  set nonsmolt_count_table table:make
+  ;set smolt_count_table table:make
+  set nonmigrants_count_table table:make
   set migrant_count_table table:make
   set drifter_count_table table:make
 
   set dead_fish_count_table table:make
   set dead_migrants_count_table table:make
-  set dead_smolts_count_table table:make
-  set dead_nonsmolts_count_table table:make
+  ;set dead_smolts_count_table table:make
+  set dead_nonmigrants_count_table table:make
   set dead_rearing_count_table table:make
 end
 
@@ -1068,22 +1069,28 @@ to rear_fish
   ; Each fish completes the following procedures in order of longest to shortest
   update_fish
   find_potential_destination_cells
-  calculate_smolting_probability
+  ;calculate_smolting_probability
   calculate_starvation_prob
+  calculate_outmigration_probability
 
- ; If a juvenile has smolted, the outmigration probability is calculated
-  if is_smolt = true [
-        ; If it's not a migrant yet, it calculates outmigration prob
-        if is_migrant = false [calculate_outmigration_probability]
-        ; If it's already a migrant, it migrates downstream (this can happen over a few timesteps if reach is long)
-        if is_migrant = true [
+     if is_migrant = true [
           migrate
           survive
         ]
-      ]
 
-  if (is_smolt = true and is_migrant = false) or (is_smolt = false) [
-        ; If a smolt or non-smolt decides not to migrate, it performs the following procedures in order
+ ; If a juvenile has smolted, the outmigration probability is calculated
+;  if is_smolt = true [
+;        ; If it's not a migrant yet, it calculates outmigration prob
+;        if is_migrant = false [calculate_outmigration_probability]
+;        ; If it's already a migrant, it migrates downstream (this can happen over a few timesteps if reach is long)
+;        if is_migrant = true [
+;          migrate
+;          survive
+;        ]
+;      ]
+
+  if is_migrant = false [
+        ; If a fish decides not to migrate, it performs the following procedures in order
         ; If we set the fish to drift based on having no destination cells, skip this attempted move logic.
         ; The select_destination_cell funciton will in most cases set is_drifter to false which prevents
         ; the desired drift to avoid stranding behavior.
@@ -1096,13 +1103,13 @@ to rear_fish
         if is_drifter = true ; the fish checks whether it will have any positive net energy in any of the search radius cells. If not, it can move to another farther area
         [drift_downstream
           ;print "turned to drifter"
-          ; If there are valid drift destination, calculate the food availability of the cells in radius of the random valid drift destinations identified
+          ; If there are valid drift destination, calculate the net energy of the cells in radius of the random valid drift destinations identified
           ifelse any? random_drift_downstream_cells = TRUE [
-            ifelse exit_status != 1 [ ; If there are radius cells within the random valid drift destinations identified (exit_status = 0), calculate food/mortality and select destination cell
-            calculate_food_availability_of_drift_cells
+            ifelse exit_status != 1 [ ; If there are radius cells within the random valid drift destinations identified (exit_status = 0), calculate net energy/mortality and select destination cell
+            calculate_net_energy_of_drift_cells
             calculate_mortality_risk
             select_destination_cell
-            ][ ; If there are no radius cells within the random valid drift destinations identified that have food, exit the river
+            ][ ; If there are no radius cells within the random valid drift destinations identified that have positive net energy, exit the river
               select_destination_cell
             ]
           ][ ; If there are no valid drift destinations, the fish either strands or exits the river (even if they aren't at the end of the reach)
@@ -1118,6 +1125,7 @@ to rear_fish
       ]
     ]
   ]
+
 end
 
 
@@ -1192,15 +1200,15 @@ to update_habitat
     table:put death_condition_table next_species 0
 
     ; List of various fish variables recorded per day
-    table:put smolt_count_table next_species 0
-    table:put nonsmolt_count_table next_species 0
+    ;table:put smolt_count_table next_species 0
+    table:put nonmigrants_count_table next_species 0
     table:put migrant_count_table next_species 0
     table:put drifter_count_table next_species 0
 
     table:put dead_fish_count_table next_species 0
     table:put dead_migrants_count_table next_species 0
-    table:put dead_smolts_count_table next_species 0
-    table:put dead_nonsmolts_count_table next_species 0
+    ;table:put dead_smolts_count_table next_species 0
+    table:put dead_nonmigrants_count_table next_species 0
     table:put dead_rearing_count_table next_species 0
   ]
 
@@ -1583,7 +1591,7 @@ to hatch_fish
         set velocity_experience_list (list) ; A list of destination cell velocity fish experience each day
 
         set is_in_shelter false          ; A boolean for whether trout is drift-feeding in velocity shelter.
-        set is_smolt false               ; A boolean for whether fish has smolted.
+        ;set is_smolt false               ; A boolean for whether fish has smolted.
         set is_migrant false             ; A boolean for whether fish has migrated
         set is_alive true                ; A boolean for whether fish is alive
         set is_drifter false             ; A boolean for whether fish is drifting downstream due to crappy habitat
@@ -1631,55 +1639,20 @@ to update_fish
 
 end
 
-;; Calculate the probability of a juvenile chinook being in the smolt "window" (depending on photoperiod) and thus becoming a smolt. The chinook juveniles must also meet or surpass a size threshold of 7 cm.
-;; For green sturgeon pseudo-smoltification, they must reach a minimum size threshold of 20 cm.
-to calculate_smolting_probability
-
-  ;print "calc smolt prob"
-
-  if (item species_id benthic_fish) = 0 [
-
-    ; Only evaluate probability of smolting if the individual hasn't smolted
-    if is_smolt = false [
-
-      set fish_smolting_prob_photoperiod (evaluate_logistic "smolt_photoperiod" species photoperiod)
-
-      set fish_smolting_prob_flength (evaluate_logistic "smolt_flength" species f_length)
-
-      set overall_smolting_prob fish_smolting_prob_photoperiod * fish_smolting_prob_flength
-
-      if ((random-float 1.0) < overall_smolting_prob) and (f_length >= item species_id smolt_min_length) [
-        set is_smolt true
-        save_event "smolted" ; only save the smolted event if its the fish's first time step smolting
-        table:put smolt_count_table species table:get smolt_count_table species + 1
-
-      ]
-      ;set nonsmolt_count_table lput 1 nonsmolt_count_table ]
-
-      if is_smolt = false [table:put nonsmolt_count_table species table:get nonsmolt_count_table species + 1]
-    ]
-  ]
-
-  ; We may not need this code block if we dont care to save that a juvenile sturgeon reached a size for saltwater tolerance
-  if (item species_id benthic_fish) = 1 [
-    if (item species_id smolt_min_length) >= 20 [ ; minimum size threshold for saltwater tolerance is set at 20 cm
-    set is_smolt true  ; or pseudo-smolt for sturgeon
-    save_event "smolted"  ; saving the smolted event as with chinook, but may not want/need for sturgeon
-  ]
-  ]
-
-  ;!!!!!!!!!!! temporatry fix
-    if ( f_length > 2 * item species_id smolt_max_L9) [
-    set is_migrant true
-    set is_smolt true
-    set breed migrants]
-
-end
 
 ;; Calculate the probability of a smolt migrating, dependent on changes in velocity
 to calculate_outmigration_probability
 
   ;print "calc outmigration prob"
+
+ ; Only evaluate probability if the individual isnt migrant
+  if is_migrant = false [
+
+  ;if (item species_id benthic_fish) = 0 [
+
+    set fish_smolting_prob_photoperiod (evaluate_logistic "smolt_photoperiod" species photoperiod)
+
+    set fish_smolting_prob_flength (evaluate_logistic "smolt_flength" species f_length)
 
  ; If the velocity experience list has less than 5 items, we take the average of those values
   ifelse length velocity_experience_list <= 5 [
@@ -1702,14 +1675,21 @@ to calculate_outmigration_probability
   ]
 
   ; The probability of outmigrating increases as the difference in velocity between the current radius and the running average increases.
-  set fish_outmigration_prob (evaluate_logistic "outmigrate_velocity" species percent_change_velocity)
+  set fish_outmigration_prob_velocity (evaluate_logistic "outmigrate_velocity" species percent_change_velocity)
 
-  if ((random-float 1.0) < fish_outmigration_prob) [ set is_migrant true
+  ; Overall outmigration prob combines the probability of smolting due to photoperiod, the probability of smolting due to length, and the probability of migrating due to change in velocity
+  set overall_outmigration_prob fish_smolting_prob_flength * (1 + fish_smolting_prob_photoperiod + fish_outmigration_prob_velocity)
+
+  if ((random-float 1.0) < overall_outmigration_prob) [ set is_migrant true
   set breed migrants
   ;set daily_migrant_count count migrants
   ]
+    ;set is_smolt true  ; or pseudo-smolt for sturgeon
+    ;save_event "smolted"  ; saving the smolted event as with chinook, but may not want/need for sturgeon
+  ]
 
-  ; If the fish reaches a max size for outmigration, it also outmigrates regardless of changes in velocity. This is so that fish dont stay in the river forever.
+  if is_migrant = false [table:put nonmigrants_count_table species table:get nonmigrants_count_table species + 1]
+;  ]
 
 end
 
@@ -1810,11 +1790,8 @@ to calculate_food_availability
       set daily_intake pi * (item my_species_id feeding_speed) * (3600 * (24 - photoperiod)) / ln((item my_species_id feeding_speed) * (3600 * (24 - photoperiod))) *  hab_ben_con * [f_length] of myself / 1e4
     ]
 
-  ; Set the flag for the smaolt factor in the metabolic calculations
-  let smolt_met_flag 0
-  if [is_smolt] of myself = true [set smolt_met_flag 1]
-  let active_metab_rate (calculate_metabolic temperature [mass] of myself my_species_id swim_speed smolt_met_flag)
-  let passive_metab_rate (calculate_metabolic temperature [mass] of myself my_species_id 0 smolt_met_flag)
+  let active_metab_rate (calculate_metabolic temperature [mass] of myself my_species_id swim_speed)
+  let passive_metab_rate (calculate_metabolic temperature [mass] of myself my_species_id 0)
 
   ifelse (item my_species_id benthic_fish) = 0 [
       set total_metab_rate (active_metab_rate * (photoperiod) + passive_metab_rate * (1 - photoperiod)) / 24
@@ -1840,7 +1817,7 @@ to calculate_food_availability
   ; Calculate net energy intake by subtracting the metabolic rate (J/d)
   set daily_net_energy daily_energy_intake - total_metab_rate
 
-  set total_food_in_cell precision (daily_net_energy) 2 ; "Total food in cell" can be negative since daily net energy can be negative
+  set total_net_energy_in_cell precision (daily_net_energy) 2 ; Value an be negative since daily net energy can be negative
 
   ]
 
@@ -1866,7 +1843,7 @@ to-report set_swim_speed [#benthic_flag #shelter #territory #velocity]
 end
 
 ;; Calculate the metabolic rate
-to-report calculate_metabolic [#temperature #mass #specise_id #swim_speed #smolt_flag]
+to-report calculate_metabolic [#temperature #mass #specise_id #swim_speed]
   let log_total_metab_rate item #specise_id met_int +
     item #specise_id met_lm * ln #mass +
     item #specise_id met_lt * ln #temperature +
@@ -1934,7 +1911,7 @@ to select_destination_cell
 
   ;print "select destination cell"
 
-   ifelse exit_status = 1 [ ; If the drifter is going to exit the system (due to there not being valid destination cells downstream of its position, or no cell with food), it selects one of the furthest cell downstream
+   ifelse exit_status = 1 [ ; If the drifter is going to exit the system (due to there not being valid destination cells downstream of its position, or no cell with positive net energy), it selects one of the furthest cell downstream
 
     move_fish destination
 
@@ -1944,27 +1921,27 @@ to select_destination_cell
 
   ; Each fish performs this in order of longest length to shortest length
 
-  ifelse (random-float 1.0) > fish_death_starv_survival_prob [ ; If the probability of surviving starvation is less than the randomly generated number, the fish selects cells with higher food regardless of risk
+  ifelse (random-float 1.0) > fish_death_starv_survival_prob [ ; If the probability of surviving starvation is less than the randomly generated number, the fish selects cells with higher positive net energy regardless of risk
 
     ;print "starving fish, select food"
-    ifelse all? wet_cells_in_radius [total_food_in_cell < 0] and is_drifter = false    ; if all of the cells in the radius have negative food values, the fish moves elsewhere in the reach to get out of crappy area
+    ifelse all? wet_cells_in_radius [total_net_energy_in_cell < 0] and is_drifter = false    ; if all of the cells in the radius have negative net energy values, the fish moves elsewhere in the reach to get out of crappy area
     [set is_drifter true
      table:put drifter_count_table species table:get drifter_count_table species + 1
     ][
 
-     set destination max-one-of wet_cells_in_radius [total_food_in_cell] ; If they do not become drifters, they select cell with higher food regardless of risk
+     set destination max-one-of wet_cells_in_radius [total_net_energy_in_cell] ; If they do not become drifters, they select cell with higher net energy regardless of risk
      move_fish destination
      ;show destination
      set is_drifter false]
 
-    ][ ; If the probability of surviving starvation is greater than the randomly generated number, the fish selects cells that maximize food to nonstarvation risks ratio
+    ][ ; If the probability of surviving starvation is greater than the randomly generated number, the fish selects cells that maximize net energy to nonstarvation risks ratio
 
     ;print "not starving, consider risks"
 
     ask wet_cells_in_radius [
 
-     ;Fish takes into account the food-risk ratio AND actual path risk (prob of surviving along the path) in selecting a destination:
-      set consider_path_risk  total_food_in_cell * path_survival]
+     ;Fish takes into account the net energy-risk ratio AND actual path risk (prob of surviving along the path) in selecting a destination:
+      set consider_path_risk  total_net_energy_in_cell * path_survival]
 
       set destination max-one-of wet_cells_in_radius [consider_path_risk]
 
@@ -2025,8 +2002,8 @@ to drift_downstream
 
 end
 
-;; Calculate the food avaiablity in a cell
-to calculate_food_availability_of_drift_cells
+;; Calculate the net energy in a drift cell
+to calculate_net_energy_of_drift_cells
 
   ;print "calc food of drift cells"
 
@@ -2039,19 +2016,19 @@ to calculate_food_availability_of_drift_cells
   ; can we take this out and use self below?
   let current_fish self
 
-  set closest_distance_cell_with_food nobody
+  set closest_cell_with_pos_energy nobody
 
-  set no_cell_has_food FALSE
+  set no_cell_has_pos_energy FALSE
 
- while [closest_distance_cell_with_food = nobody and no_cell_has_food = FALSE] [
+ while [closest_cell_with_pos_energy = nobody and no_cell_has_pos_energy = FALSE] [
 
-    set positive_food_cell_count 0
+    set positive_energy_cell_count 0
     let n_index 0
 
     ; Feed in the random cells (in ascending order):
     foreach sorted_distance_cells [n ->
 
-    while [positive_food_cell_count = 0 and no_cell_has_food = FALSE][ ;While there are no positive food cells in radius and we haven't reached the end of the list, keep going
+    while [positive_energy_cell_count = 0 and no_cell_has_pos_energy = FALSE][ ;While there are no positive net energy cells in radius and we haven't reached the end of the list, keep going
 
         ask n [
 
@@ -2066,23 +2043,23 @@ to calculate_food_availability_of_drift_cells
 
              calculate_food_availability
 
-            set all_net_energy max [total_food_in_cell] of wet_cells_in_radius
+            set all_net_energy max [total_net_energy_in_cell] of wet_cells_in_radius
 
           ]
 
         ifelse all_net_energy > 0 [  ; If there is a radius cell with positive net intake, we can exit the loop
 
-        set positive_food_cell_count 1 ; If any of the element in the list is positive, we have found a cell with food
-        set closest_distance_cell_with_food n
+        set positive_energy_cell_count 1 ; If any of the element in the list is positive, we have found a cell with positive net energy
+        set closest_cell_with_pos_energy n
 
         ][
-           set positive_food_cell_count 0
+           set positive_energy_cell_count 0
 
-           set closest_distance_cell_with_food nobody
+           set closest_cell_with_pos_energy nobody
 
            ifelse length sorted_distance_cells = n_index + 1 [  ; If we have reached the end of the random drift cells
 
-              set no_cell_has_food TRUE
+              set no_cell_has_pos_energy TRUE
 
             ][
 
@@ -2097,7 +2074,7 @@ to calculate_food_availability_of_drift_cells
     ]
   ]
 
-        ifelse closest_distance_cell_with_food = nobody [  ; If there are no cells with food, the drifter exits out of the river
+        ifelse closest_cell_with_pos_energy = nobody [  ; If there are no cells with positive net energy, the drifter exits out of the river
 
           ; Set max migration distance in patches
          ;let max_migration_distance (item species_id migration_max_dist) / resolution
@@ -2109,13 +2086,13 @@ to calculate_food_availability_of_drift_cells
         ][
 
         ; Fish moves to closest drift cell
-        move-to closest_distance_cell_with_food
+        move-to closest_cell_with_pos_energy
 
         ; Reset path survival list for the drifters who move to two cells (this store the path survivals of the two paths)
         set path_survival_list []
 
         ;For the drifter fish, store the path survival probabilities
-        set path_survival_list lput [path_survival] of closest_distance_cell_with_food path_survival_list
+        set path_survival_list lput [path_survival] of closest_cell_with_pos_energy path_survival_list
 
         ;Wet cells in radius become the valid patches in the radius of the closest cell
         set wet_cells_in_radius find_possible_destinations self patch_radius
@@ -2614,6 +2591,8 @@ end
 ;; Determines whether fish die and of what cause
 to survive
 
+  set previous_condition fish_condition
+
  ; print "survive"
 
   if strand_status = 1
@@ -2623,10 +2602,10 @@ to survive
     save_event "died of stranding"
     set is_alive false
     table:put dead_fish_count_table species table:get dead_fish_count_table species + 1
-    (ifelse is_smolt = true and is_migrant = false [table:put dead_smolts_count_table species table:get dead_smolts_count_table species + 1]
-      is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1]
-      is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
-    (ifelse is_smolt = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
+    (ifelse is_migrant = false [table:put dead_nonmigrants_count_table species table:get dead_nonmigrants_count_table species + 1]
+      is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1])
+      ;is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
+    (ifelse is_migrant = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
     die
   ]
 
@@ -2642,10 +2621,10 @@ to survive
       save_event "died of predation"
       set is_alive false
       table:put dead_fish_count_table species table:get dead_fish_count_table species + 1
-      (ifelse is_smolt = true and is_migrant = false [table:put dead_smolts_count_table species table:get dead_smolts_count_table species + 1]
-        is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1]
-        is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
-      (ifelse is_smolt = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
+      (ifelse is_migrant = false [table:put dead_nonmigrants_count_table species table:get dead_nonmigrants_count_table species + 1]
+      is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1])
+      ;is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
+      (ifelse is_migrant = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
     die
     ]
     ]
@@ -2658,10 +2637,10 @@ to survive
     save_event "died of predation"
     set is_alive false
     table:put dead_fish_count_table species table:get dead_fish_count_table species + 1
-    (ifelse is_smolt = true and is_migrant = false [table:put dead_smolts_count_table species table:get dead_smolts_count_table species + 1]
-      is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1]
-      is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
-    (ifelse is_smolt = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
+    (ifelse is_migrant = false [table:put dead_nonmigrants_count_table species table:get dead_nonmigrants_count_table species + 1]
+      is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1])
+      ;is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
+    (ifelse is_migrant = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
     die
   ]
   ]
@@ -2673,10 +2652,10 @@ to survive
     save_event "died of high temp"
     set is_alive false
     table:put dead_fish_count_table species table:get dead_fish_count_table species + 1
-    (ifelse is_smolt = true and is_migrant = false [table:put dead_smolts_count_table species table:get dead_smolts_count_table species + 1]
-      is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1]
-      is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
-    (ifelse is_smolt = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
+    (ifelse is_migrant = false [table:put dead_nonmigrants_count_table species table:get dead_nonmigrants_count_table species + 1]
+      is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1])
+      ;is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
+    (ifelse is_migrant = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
     die
   ]
 
@@ -2687,21 +2666,24 @@ to survive
     save_event "died of poor condition"
     set is_alive false
     table:put dead_fish_count_table species table:get dead_fish_count_table species + 1
-    (ifelse is_smolt = true and is_migrant = false [table:put dead_smolts_count_table species table:get dead_smolts_count_table species + 1]
-      is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1]
-      is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
-    (ifelse is_smolt = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
+    (ifelse is_migrant = false [table:put dead_nonmigrants_count_table species table:get dead_nonmigrants_count_table species + 1]
+      is_migrant = true [table:put dead_migrants_count_table species table:get dead_migrants_count_table species + 1])
+      ;is_smolt = false [table:put dead_nonsmolts_count_table species table:get dead_nonsmolts_count_table species + 1])
+    (ifelse is_migrant = false and daily_growth > 0 [table:put dead_rearing_count_table species table:get dead_rearing_count_table species + 1])
     die
   ]
 
   if is_alive = true [
-    save_event "alive"
+    ifelse is_migrant = true [
+      save_event "alive_migrated"  ][
+      save_event "alive"
     ;set daily_juvenile_count count juveniles
-    ask destination [
-      set count_fish_destination count turtles-here
-      set avg_weight_fish_in_destination mean [mass] of turtles-here
-      set avg_length_fish_in_destination mean [f_length] of turtles-here
-      set avg_condition_fish_in_destination mean [fish_condition] of turtles-here
+       ask destination [
+        set count_fish_destination count turtles-here
+        set avg_weight_fish_in_destination mean [mass] of turtles-here
+        set avg_length_fish_in_destination mean [f_length] of turtles-here
+        set avg_condition_fish_in_destination mean [fish_condition] of turtles-here
+    ]
     ]
   ]
   ;[
@@ -2711,7 +2693,6 @@ to survive
 
   if is_migrant = true and ycor = reach_end [die] ; If the migrant has reached the end of the reach and hasn't died, it is removed from the system but doesnt get added to the dead count
   if exit_status = 1 and ycor = reach_end [die] ; If the drifter has reached the end of the reach and hasn't died, it is removed from the system but doesnt get added to the dead count
-
 
 end
 
@@ -2738,7 +2719,7 @@ to save_destination_cell_info
       [avg_condition_fish_in_destination] of next_cell
       [today_velocity] of next_cell
       [today_depth] of next_cell
-      [total_food_in_cell] of next_cell
+      [total_net_energy_in_cell] of next_cell
       [total_mort_risk_for_cell] of next_cell
       [fish_death_aq_pred_prob] of next_cell
     )) cell_info_list
@@ -2769,7 +2750,8 @@ to save_event [an_event_type]
       fish_condition
       daily_growth
       percent_daily_growth
-      fish_smolting_prob_photoperiod
+      ;fish_smolting_prob_photoperiod
+      overall_outmigration_prob
       is_in_shelter
       is_drifter
       an_event_type
@@ -2778,7 +2760,7 @@ to save_event [an_event_type]
       [today_depth] of destination
       [distance_to_cover] of destination
       [cell_available_vel_shelter] of destination
-      [total_food_in_cell] of destination
+      [total_net_energy_in_cell] of destination
       [path_survival] of destination
       [fish_death_aq_pred_prob] of destination
     )) fish_events_list
@@ -2795,9 +2777,9 @@ to save_detailed_population_info
     set total_daily_juveniles count current_set ; the number of non-smolt and smolt individuals in the river that day (does not include migrants)(cumulative)
     let rearing_juveniles count current_set with [daily_growth > 0 ]
     set total_daily_migrants table:get migrant_count_table next_species ; the number of individuals that turned into migrants that day or are currently migrating
-    set total_daily_smolts table:get smolt_count_table next_species    ; the number of individuals that turned into smolts that day
+    ;set total_daily_smolts table:get smolt_count_table next_species    ; the number of individuals that turned into smolts that day
                                                     ;set total_daily_smolts count juveniles with [is_smolt = true]    ; the number of individuals that turn are smolts at the beginning of that day
-    set total_daily_nonsmolts table:get nonsmolt_count_table next_species  ; the number of individuals that are nonsmolts at the beginning of that day (cumulative)
+    set total_daily_nonmigrants table:get nonmigrants_count_table next_species  ; the number of individuals that are nonmigrants at the beginning of that day (cumulative)
     let mean_length 0
     let mean_energy 0
     if  any? current_set = true [
@@ -2821,9 +2803,9 @@ to save_detailed_population_info
 
     set total_daily_dead_fish table:get dead_fish_count_table next_species ; the number of individuals (smolts and nonsmolts) that have died that day
     set total_daily_dead_migrants table:get dead_migrants_count_table next_species ; the number of migrants that have died that day
-    set total_daily_dead_smolts table:get dead_smolts_count_table next_species ; the number of smolts that have died that day
+    ;set total_daily_dead_smolts table:get dead_smolts_count_table next_species ; the number of smolts that have died that day
     let total_daily_dead_rearers table:get dead_rearing_count_table next_species ; the number of smolts that have died that day
-    set total_daily_dead_nonsmolts table:get dead_nonsmolts_count_table next_species ; the number of nonsmolts that have died that day
+    set total_daily_dead_nonmigrants table:get dead_nonmigrants_count_table next_species ; the number of nonsmolts that have died that day
     set total_daily_drifters table:get drifter_count_table next_species  ; the number of individuals that turned into drifters that day (can be smolts or nonsmolts)
     let count_death_predation table:get death_pred_table next_species
     let count_death_hightemp table:get death_temp_table next_species
@@ -2843,19 +2825,19 @@ to save_detailed_population_info
       ;      mean_migrant_length
       ;      mean_migrant_mass
       ;      mean_migrant_condition
-      (total_daily_smolts * superind_ratio)
+      ;(total_daily_smolts * superind_ratio)
       ;      mean_smolt_length
       ;      mean_smolt_mass
       ;      mean_smolt_condition
-      (total_daily_nonsmolts * superind_ratio)
+      (total_daily_nonmigrants * superind_ratio)
       ;      mean_nonsmolt_length
       ;      mean_nonsmolt_mass
       ;      mean_nonsmolt_condition
       (total_daily_drifters * superind_ratio)
       (total_daily_dead_fish * superind_ratio)
       (total_daily_dead_migrants * superind_ratio)
-      (total_daily_dead_smolts * superind_ratio)
-      (total_daily_dead_nonsmolts * superind_ratio)
+      ;(total_daily_dead_smolts * superind_ratio)
+      (total_daily_dead_nonmigrants * superind_ratio)
       (total_daily_dead_rearers * superind_ratio)
       (count_death_predation * superind_ratio)
       (count_death_hightemp * superind_ratio)
@@ -2881,7 +2863,7 @@ to build_output_file_named [a_file_name]
     if file-exists? detailed_population_outfile_name [ file-delete detailed_population_outfile_name ]
     ; These header lines must be put at the *start* of the list. Use fput with header
     ; lines in reverse order.
-    set detailed_population_list fput "time, Species, juveniles, rearers, mean_length, mean_energy, mean_rearing_length_change, migrants, smolts, nonsmolts, drifters, dead_fish, dead_migrant, dead_smolt, dead_nonsmolts, dead_rearers, predation_deaths, high_t_deaths, stranding_deaths, poor_condition_deaths, temperature, flow, photoperiod" detailed_population_list
+    set detailed_population_list fput "time, Species, juveniles, rearers, mean_length, mean_energy, mean_rearing_length_change, migrants, nonmigrants, drifters, dead_fish, dead_migrants, dead_nonmigrants, dead_rearers, predation_deaths, high_t_deaths, stranding_deaths, poor_condition_deaths, temperature, flow, photoperiod" detailed_population_list
     set detailed_population_list fput (word "FHAST detailed population output file, Created " date-and-time) detailed_population_list
   ]
   ;; Create the destination cell info output file.
@@ -2903,7 +2885,7 @@ to build_output_file_named [a_file_name]
     ; There can be events on the fish-events-list when file is created (from fish initialization)
     ; so these header lines must be put at the *start* of the list. Use fput with header
     ; lines in reverse order.
-    set fish_events_list fput "time, Species, id, x_pos, y_pos, length , mass, previous_condition, condition, growth, percent_daily_growth, c_max, smolting_prob_per_photoperiod, in_shelter, is_drifter, event, flow, velocity, depth, distance_to_cover, available_velocity_shelter, food, path_survival, prob_of_predation" fish_events_list
+    set fish_events_list fput "time, Species, id, x_pos, y_pos, length , mass, previous_condition, condition, growth, percent_daily_growth, overall_outmigration_prob, in_shelter, is_drifter, event, flow, velocity, depth, distance_to_cover, available_velocity_shelter, total_net_energy, path_survival, prob_of_surviving_predation_of_destination" fish_events_list
     set fish_events_list fput (word "FHAST fish events output file, Created " date-and-time) fish_events_list
   ]
 
@@ -2971,8 +2953,8 @@ end
 GRAPHICS-WINDOW
 211
 15
-569
-626
+300
+625
 -1
 -1
 5.769230769230769
@@ -3105,28 +3087,10 @@ PENS
 "daily flow" 1.0 0 -13791810 true "" "plot flow"
 
 PLOT
-1161
-15
-1453
-230
-Smolted individuals vs time (cumulative)
-Time
-Smolt Sum
-0.0
-10.0
-0.0
-10.0
-true
-true
-"" ""
-PENS
-"smolt sum" 1.0 0 -16777216 true "" "plot count juveniles with [is_smolt = true]"
-
-PLOT
-1467
-258
-1680
-482
+1165
+12
+1451
+236
 Migrant sum vs time (daily)
 Time
 Migrant Sum
@@ -3138,13 +3102,13 @@ true
 false
 "" ""
 PENS
-"migrant sum" 1.0 0 -16777216 true "" "plot sum migrant_count_table"
+"migrant sum" 1.0 0 -16777216 true "" "plot sum table:values migrant_count_table"
 
 PLOT
-1463
-15
-1681
-231
+1465
+160
+1750
+376
 Photoperiod vs time
 Time
 Photoperiod
@@ -3208,7 +3172,7 @@ SWITCH
 106
 draw_fish_movements?
 draw_fish_movements?
-1
+0
 1
 -1000
 
@@ -3228,10 +3192,10 @@ true
 true
 "" ""
 PENS
-"velocity" 1.0 0 -14070903 true "" "plot sum death_velocity_table"
-"temperature" 1.0 0 -2674135 true "" "plot sum death_temp_table"
-"stranding" 1.0 0 -6459832 true "" "plot sum death_stranding_table"
-"predation" 1.0 0 -10899396 true "" "plot sum death_pred_table"
+"velocity" 1.0 0 -14070903 true "" "plot sum table:values death_velocity_table"
+"temperature" 1.0 0 -2674135 true "" "plot sum table:values death_temp_table"
+"stranding" 1.0 0 -6459832 true "" "plot sum table:values death_stranding_table"
+"predation" 1.0 0 -10899396 true "" "plot sum table:values death_pred_table"
 "poor condition " 1.0 0 -10141563 true "" "plot sum death_condition_table"
 
 BUTTON

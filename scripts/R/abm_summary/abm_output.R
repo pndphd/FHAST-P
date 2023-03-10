@@ -35,9 +35,9 @@ species_list = unique(detailed_data_temp$Species)
 # do some general calculations
 detailed_data = detailed_data_temp %>%
   mutate(all_survival_prob = (juveniles - dead_fish)/juveniles,
-         nonsmolt_survival_prob = (nonsmolts - dead_nonsmolts)/nonsmolts,
-         smolt_survival_prob = (smolts - dead_smolt)/smolts,
-         migrant_survival_prob = (migrants - dead_migrant)/migrants,
+         nonmigrant_survival_prob = (nonmigrants - dead_nonmigrants)/nonmigrants,
+         #smolt_survival_prob = (smolts - dead_smolt)/smolts,
+         migrant_survival_prob = (migrants - dead_migrants)/migrants,
          rear_survival_prob = (rearers - dead_rearers)/rearers)
 
 mortality_breakdown = detailed_data %>% 

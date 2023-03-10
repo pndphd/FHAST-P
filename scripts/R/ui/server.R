@@ -32,7 +32,6 @@ source(here("scripts","R","main","default_initialization.R"))
 # also do some basic checking of files
 # need to load pathfinder finding first for adult parameters
 source(here("scripts","R","migration", "R", "pathfinding_functions.R"))
-source(here("scripts","R","parameters","load_convert_parameters.R"))
 source(here("scripts", "R", "daily_inputs", "scripts",
             "functions_make_enviro_input_file.R"))
 source(here("scripts", "R", "daily_inputs", "scripts",
@@ -309,18 +308,28 @@ shinyServer(function(input, output, session) {
 
   # Run button clicked
   observeEvent(input$graphs, {
-    do_save(input)
+    progress <<- shiny::Progress$new()
+    progress$set(message = "Generating Graphs", value = 0)
     
-    source(here("scripts","R","parameters","load_convert_parameters.R"))
+    progress$set(value = 0.01, detail = "Saving Configuration")
+    do_save(input)
 
+    progress$set(value = 0.1, detail = "Initializaing Configuration")
     # Initialize fhast variables to the inputs in the UI.
     initialize_fhast(input$config_file)
+    
+    progress$set(value = 0.05, detail = "Converting Parameters")
+    source(here("scripts","R","parameters","load_convert_parameters.R"))
+    
     updateTabsetPanel(
       session = session, inputId = "main_tabs",
       selected = "Output"
     )
+    progress$set(value = 0.2, detail = "Load Daily Conditions")
     output_data <- load_daily_conditions(daily_inputs)
+    progress$set(value = 0.5, detail = "Load fish Schedule")
     fish_schedule <- load_fish_timeseries(fish_daily_inputs)
+    progress$set(value = 0.75, detail = "Reticulating Splines")
     # Make the plots
     output$daily_timeseries <- renderPlot({
       make_daily_timeseries_plot(output_data)
@@ -334,30 +343,42 @@ shinyServer(function(input, output, session) {
     output$map_preview <- renderPlot({
       make_map_plot()
     })
+    progress$close()
   })
 
   observeEvent(input$html, {
+    progress <<- shiny::Progress$new()
+    progress$set(message = "Report Generation", value = 0)
+    progress$set(value = 0.01, detail = "Saving Configuration")
     do_save(input)
 
+    progress$set(value = 0.1, detail = "Initializaing Configuration")
     # Initialize fhast variables to the inputs in the UI.
     initialize_fhast(input$config_file)
 
+    progress$set(value = 0.02, detail = "Converting Parameters")
     source(here("scripts","R","parameters","load_convert_parameters.R"))
+    progress$set(value = 0.05, detail = "Paramaterizing NetLogo Model")
     # Run the model
     source(here("scripts", "R", "main", "run_model.R"))
     
+    progress$set(value = 0.2, detail = "Running NetLogo Model")
     results <- run_netlogo_model()
 
+    progress$set(value = 0.8, detail = "Reticulating Splines")
     report_name <- input$report_name
     if (!nzchar(report_name)) {
       report_name <- "FHAST_report"
     }
     # Generate reports
     
+    progress$set(value = 0.85, detail = "Generating Habitat Summary")
     # Make the habitat summary file
     source(here("scripts", "R", "habitat_summary","scripts", "make_habitat_summary.R")) 
+    progress$set(value = 0.9, detail = "Processing NetLogo output")
     # Make the ABM summary file
     source(here("scripts", "R", "abm_summary", "abm_output.R"))
+    progress$set(value = 0.95, detail = "Generating Report")
     rmarkdown::render(
       here(
         "scripts", "R", "habitat_summary", "scripts",
@@ -366,6 +387,7 @@ shinyServer(function(input, output, session) {
       output_format = "html_document", output_dir = fhast_base_folder,
       output_file = report_name
     )
+    progress$close()
   })
 
   # Save button clicked
