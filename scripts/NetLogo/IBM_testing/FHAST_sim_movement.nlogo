@@ -182,7 +182,6 @@ globals [
   ucrit_b                   ; Parameters for max swimm speed vs lenght (this is the slope)
   ucrit_c                   ; Parameters for the max swimm speed temperature beta-sigmoid function (C)
   ucrit_d                   ; Parameters for the max swimm speed temperature beta-sigmoid function (C)
-  smolt_min_length          ; The minimum size threshold for smolting (for chinook), and for pseudo smoltification for sturgeon
   smolt_P1                  ; Parameters for the logistic equation for the probability of smolting depending on photoperiod- Photoperiod where probability of being in the "smolting window" is 10 pct
   smolt_P9                  ; Parameters for the logistic equation for the probability of smolting depending on photoperiod- Photoperiod where probability of being in the "smolting window" is 90 pct
   smolt_max_L1              ; Parameters for the logistic equation for the probability of smolting depending on flength- Length in which probability of smolting is 10 pct
@@ -728,7 +727,6 @@ to set_fish_parameters
   set mort_high_temp_T9 (table:get paired_param_table "mort_high_temp_T9")
   set mort_condition_K1 (table:get paired_param_table "mort_condition_K1")
   set mort_condition_K9 (table:get paired_param_table "mort_condition_K9")
-  set smolt_min_length (table:get paired_param_table "smolt_min_length")
   set smolt_P1 (table:get paired_param_table "smolt_P1")
   set smolt_P9 (table:get paired_param_table "smolt_P9")
   set smolt_max_L1 (table:get paired_param_table "smolt_max_L1")
@@ -2953,8 +2951,8 @@ end
 GRAPHICS-WINDOW
 211
 15
-300
-625
+570
+629
 -1
 -1
 5.769230769230769
