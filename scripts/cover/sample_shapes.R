@@ -78,6 +78,7 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
            cover_fra = rowSums(across(cover_habitat)),
            small_cover_fra = rowSums(across(small_cover_habitat)))
   
+ 
   
   # Add in the AOI
   if(is.na(aoi_path)){
@@ -90,7 +91,7 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
     mutate(aoi = 1) %>% 
     select(aoi)
     
-    sampeled_w_aoi = sample_shape_with_grid (river_grid, aoi_shape, "aoi", "aoi") %>%
+    sampeled_w_aoi = sample_shape_with_grid(river_grid, aoi_shape, "aoi", "aoi") %>%
       mutate(aoi = ifelse(aoi>0,1,0)) %>% 
       select(aoi, ID) %>% 
       right_join(sampeled_shapes, by = c("ID")) %>% 

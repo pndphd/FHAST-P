@@ -393,6 +393,7 @@ shinyServer(function(input, output, session) {
         progress$set(value = 0.85, detail = "Generating Reports")
         source(here("scripts","main","run_post.R"))
         progress$set(value = 1, detail = "Done")
+        Sys.sleep(2) 
 
       } else {
         print("The model encountered an error.")

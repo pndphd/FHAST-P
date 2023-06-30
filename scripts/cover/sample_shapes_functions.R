@@ -17,8 +17,15 @@ sample_shape_with_grid <- function(grid, shape_file, column_name, output_name) {
 
   # First intersect the shape file and grid and only save the unique IDs of each
   # resulting shape
-  grid_samples <- shape_file %>%
-    st_intersection(grid) %>%
+  
+  grid_samples_check <- shape_file %>%
+    st_intersection(grid) 
+  
+  if(NROW(grid_samples_check)==0){
+    stop(paste0("The ", output_name, " shape does not overlap the grid.\nPlease ensure overlap of all shape files and the grid."))
+  }
+    
+  grid_samples = grid_samples_check %>% 
     # there are duplicates
     distinct() %>%
     mutate(sample_area = as.numeric(st_area(.))) %>%
