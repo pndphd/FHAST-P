@@ -42,7 +42,7 @@ pred_parm_temp <- read_csv(file = predator_path,
 hab_parm_temp <- load_text_file(hab_path)
 int_parm_temp <- load_text_file(interaction_path)
 
-##### Check the CRS off shape files #####
+##### Check and format shape files #####
 # Check that these are the same crs
 if (!compareCRS(grid_center_line, grid_top_marker) |
     !compareCRS(canopy_shape, grid_top_marker) |
@@ -54,6 +54,27 @@ if (!compareCRS(grid_center_line, grid_top_marker) |
 if (NROW(grid_center_line) != 1)
   stop('The river center line shape file is a multipart object.\n
        It must be a single part object.')
+
+# replace the wild card values 
+if("wildcard" %in% cover_shape$class){
+  check_file_exists(wild_path)
+  wild_values = read.csv(wild_path)
+  wild_shape = cover_shape %>% 
+    filter(class == "wildcard") 
+
+  replace_cover = function(df, variable){
+    df_out = df %>% 
+      mutate_at(.vars = variable,
+                .funs = ~ wild_values[,variable])
+  }
+  
+  wild_shape_new = names(wild_values) %>% 
+    reduce(~replace_cover(df = .x, variable = .y),
+           .init = wild_shape)
+  cover_shape = cover_shape %>% 
+    filter(class != "wildcard") %>% 
+    bind_rows(wild_shape_new)
+}
 
 ##### Convert into usable formats #####
 # fish parameters to named list with species as index

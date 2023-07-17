@@ -42,9 +42,9 @@ make_map_plot <- function() {
   map_plot <- ggplot() +
     theme_classic(base_size = 25) +
     geom_sf(data = raster_extent, fill = "#E8F5E9") +
-    geom_sf(data = river_appx, aes(color = "Grid"), fill = NA, linewidth = 1) +
-    geom_sf(data = cover_shape, aes(color = "Cover"), fill = NA, linewidth = 1) +
-    geom_sf(data = canopy_shape, aes(color = "Canopy"), fill = NA, linewidth = 1) +
+    geom_sf(data = river_appx, aes(color = "Grid"), fill = NA) +
+    geom_sf(data = cover_shape, aes(color = "Cover"), fill = NA) +
+    geom_sf(data = canopy_shape, aes(color = "Canopy"), fill = NA) +
     geom_label(data = top_label, aes(x,y,label = name),
               size = 5, label.size = 1, color = "black")
   

@@ -10,15 +10,9 @@ source(here("scripts","river_grid","grid_maker_functions.R"))
 # outputs
 # temp_river_grid_path, temp_river_grid_shape_path
 
-temp_river_grid_path <- here(temp_folder, paste0("river_grid_",
-                                                      habitat_parm$resolution,
-                                                      "_", habitat_parm$buffer,
-                                                      ".rds"))
+temp_river_grid_path <- here(temp_folder, "river_grid.rds")
 
-temp_river_grid_shape_path <- here(temp_folder, paste0("river_grid_",
-                                                     habitat_parm$resolution,
-                                                     "_", habitat_parm$buffer,
-                                                     ".shp"))
+temp_river_grid_shape_path <- here(temp_folder, "river_grid.shp")
 
 input_output_file_paths <- c(grid_center_line_path, hab_path,
                              grid_top_marker_path, temp_river_grid_path,

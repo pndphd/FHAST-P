@@ -11,30 +11,22 @@ source(here("scripts","cover","sample_shapes_functions.R"))
 # outputs
 # temp_netlogo_shape_data_path
 
-temp_river_grid_path <- here(temp_folder, paste0("river_grid_",
-                                                      habitat_parm$resolution,
-                                                      "_",
-                                                      habitat_parm$buffer,
-                                                      ".rds"))
+temp_river_grid_path <- here(temp_folder, paste0("river_grid.rds"))
 temp_shape_file_path <- here(temp_folder, paste0("shade_file_", habitat_parm$veg_growth_years,".rds"))
 
 temp_RDS_shape_data_path <- here(temp_folder,
-                                     paste0("Shape_Data_Input_",
-                                            habitat_parm$resolution,"_",
-                                            habitat_parm$buffer, ".rds"))
+                                     paste0("Shape_Data_Input.rds"))
 
 temp_netlogo_shape_data_path <- here(temp_folder,
-                                     paste0("Shape_Data_Input_",
-                                            habitat_parm$resolution,"_",
-                                            habitat_parm$buffer, ".csv"))
+                                     paste0("Shape_Data_Input.csv"))
 
 input_output_file_paths <- c(temp_river_grid_path, temp_shape_file_path,
-                             cover_path, hab_path, aoi_path,
+                             cover_path, hab_path, aoi_path, wild_path,
                              temp_netlogo_shape_data_path)
 
 hash_storage <-here(temp_folder, "sample_shapes_run_hashes.txt")
 
-if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
+# if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
 
   ##### Load Files #####
   # Load the grid file
@@ -109,7 +101,7 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
   saveRDS(sampeled_w_aoi, file = temp_RDS_shape_data_path)
   
   store_last_run_hashes(hash_storage, input_output_file_paths)
-}
+# }
 
 ##### Load and save the outputs #####
 result = readRDS(file = temp_RDS_shape_data_path)

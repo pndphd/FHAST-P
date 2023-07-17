@@ -37,15 +37,21 @@ source(here("scripts", "main", "set_fhast_file_structure.R"))
 # Run the initialization 
 source(here("scripts","main","initialize_fhast.R"))
 
+# Run again because of change in file path
+input_path = read.table(file = here("temporary", "input_file_path.txt"),
+                        col.names = "path")
+initialize_fhast(input_path$path)
+
 # load all the input files and make basic parameter files
 # also do some basic checking of files
 # need to load pathfinder finding first for adult parameters
 source(here("scripts","migration", "pathfinding_functions.R"))
+
+# make output locations 
+source(here("scripts","main","make_output_folder.R"))
+
 source(here("scripts","format_parameters","load_convert_parameters.R"))
 
-input_data <- load_text_file(file.path(input_folder, fhast_config_file))
-
-simulation_name = input_data["run name",]
 ```
 
 ```{r load_data, include=FALSE}
@@ -75,7 +81,7 @@ fish_list = unique(fish_parm$specie)
 n = 0
 ```
 
-### Simulation name: `r simulation_name`
+### Simulation name: `r run_name`
 ***
 ## Tabular Outputs 
 

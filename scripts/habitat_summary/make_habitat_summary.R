@@ -13,24 +13,19 @@ source(here("scripts", "migration", "pathfinding_functions.R"))
 ##### Load Files #####
 # Load the shape file names
 shape_file <- read.csv(here("temporary", 
-                            paste0("Shape_Data_Input_",
-                                   habitat_parm$resolution, "_",
-                                   habitat_parm$buffer, ".csv")))
+                            paste0("Shape_Data_Input.csv")))
 
 # Load the raster file
 raster_file <- read.csv(here("temporary",  
-                             paste0("Depth_Velocity_Data_Input_",
-                                    habitat_parm$resolution, "_",
-                                    habitat_parm$buffer, ".csv")))
+                             paste0("Depth_Velocity_Data_Input.csv")))
+
 # Load the daily enviromental inputs 
 daily_file <- read.csv(here("temporary",  "daily_input_file.csv")) %>%
   mutate(date = mdy(date))
 
 # Load the Grid file
 grid_file <- readRDS(here("temporary", 
-                          paste0("river_grid_",
-                                 habitat_parm$resolution, "_",
-                                 habitat_parm$buffer, ".rds"))) %>%
+                          paste0("river_grid.rds"))) %>%
   select(distance, lat_dist)
 
 # Distance to cover model

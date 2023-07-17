@@ -15,17 +15,9 @@ source(here("scripts", "depth_velocity", "make_migration_path.R"))
 # temp_netlogo_depth_velocity_path
 
 temp_river_grid_path <- here(temp_folder,  
-                         paste0("river_grid_",
-                                habitat_parm$resolution,
-                                "_",
-                                habitat_parm$buffer,
-                                ".rds"))
+                         paste0("river_grid.rds"))
 temp_netlogo_depth_velocity_path <- here(temp_folder, 
-                                         paste0("Depth_Velocity_Data_Input_",
-                                           habitat_parm$resolution,
-                                           "_",
-                                           habitat_parm$buffer,
-                                           ".csv"))
+                                         paste0("Depth_Velocity_Data_Input.csv"))
 
 input_output_file_paths <- list.files(raster_folder, full.names=TRUE)
 input_output_file_paths <- append(input_output_file_paths, temp_river_grid_path)

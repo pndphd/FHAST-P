@@ -17,19 +17,20 @@ initialize_fhast <- function(file_path) {
     write_config_file(
       file_path,
       "Unnamed Scenario",
-      "base_inputs/fish_population.csv",
-      "base_inputs/enviromental_input_dist.txt",
-      "base_inputs/fish_params_input.csv",
-      "base_inputs/grid_folder/center_line.shp",
-      "base_inputs/grid_folder/top_point.shp",
-      "base_inputs/cover.shp",
-      "base_inputs/canopy.shp",
-      "base_inputs/tree_growth_parameters.csv",
-      "base_inputs/habitat.txt",
-      "base_inputs/interactions.txt",
-      "base_inputs/predator_params_input.csv",
-      "base_inputs/flow_folder",
-      "base_inputs/grid_folder/aoi.shp"
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE !!!",
+      "!!! PROVIDE or delete message !!!",
+      "!!! PROVIDE or delete message !!!"
     )
   }
 
@@ -80,6 +81,16 @@ initialize_fhast <- function(file_path) {
   } else {
     aoi_path <<- NA
   }
+  
+  # get the wildcard path
+  wild_input <- input_data["wildcard", ]
+  # Checking length is not sufficient (aoi_input can be an array containing a
+  # single empty string), so the nzchar check is also needed.
+  if (!is.na(wild_input) && length(wild_input) > 0 && nzchar(wild_input)) {
+    wild_path <<- get_path(fhast_base_folder, wild_input)
+  } else {
+    wild_path <<- NA
+  }
 
   # Reset this stuff to be ready for a new run, the random seed in particular
   # should get set every time.
@@ -90,21 +101,26 @@ initialize_fhast <- function(file_path) {
 
 write_config_file <- function(file_path, name, fish_pop, daily, fish_params, line,
                             point, cover, canopy, tree_growth, hab_params,
-                            interaction_params, predator, raster, aoi) {
+                            interaction_params, predator, raster, aoi, wild) {
   obj <- data.frame(
     names = c(
       "run name", "fish population", "daily conditions",
       "fish parameters", "grid centerline", "grid top point",
       "cover", "canopy", "tree growth", "habitat parameters", "interaction parameters",
-      "predator parameters", "raster folder", "aoi"
+      "predator parameters", "raster folder", "aoi", "wildcard"
     ),
     paths = c(
       name, fish_pop, daily, fish_params, line, point,
       cover, canopy, tree_growth, hab_params, interaction_params, predator,
-      raster, aoi
+      raster, aoi, wild
     )
   )
   save_text_file(file_path, obj)
+  write.table(file_path,
+              file = here("temporary", "input_file_path.txt"),
+              row.names = F,
+              col.names = F)
+
 }
 
 

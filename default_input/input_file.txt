@@ -1,0 +1,15 @@
+run name=Unnamed Scenario
+fish population=!!! PROVIDE !!!
+daily conditions=!!! PROVIDE !!!
+fish parameters=!!! PROVIDE !!!
+grid centerline=!!! PROVIDE !!!
+grid top point=!!! PROVIDE !!!
+cover=!!! PROVIDE !!!
+canopy=!!! PROVIDE !!!
+tree growth=!!! PROVIDE !!!
+habitat parameters=!!! PROVIDE !!!
+interaction parameters=!!! PROVIDE !!!
+predator parameters=!!! PROVIDE !!!
+raster folder=!!! PROVIDE !!!
+aoi=!!! PROVIDE or delete message !!!
+wildcard=!!! PROVIDE or delete message !!!

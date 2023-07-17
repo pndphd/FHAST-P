@@ -5,6 +5,13 @@
 # (and possibly re-initialized to other inputs).
 ########################################
 
+# make output locations 
+source(here("scripts","main","make_output_folder.R"))
+
+# load all the input files, make basic parameter files,
+# also do some basic checking of files
+source(here("scripts","format_parameters","load_convert_parameters.R"))
+
 # Make the daily input file
 source(here("scripts","daily_inputs","make_enviro_input_file.R"))
 

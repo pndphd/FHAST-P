@@ -16,11 +16,7 @@ source(here("scripts","shade","shade_functions.R"))
 source(here("scripts","shade","growth_functions.R"))
 
 temp_daily_file_path <- here(temp_folder,  "daily_input_file.csv")
-temp_river_grid_path <- here(temp_folder, 
-                            paste0("river_grid_",
-                                   habitat_parm$resolution,
-                                   "_", habitat_parm$buffer,
-                                   ".rds"))
+temp_river_grid_path <- here(temp_folder, "river_grid.rds")
 temp_shade_file_path <- here(temp_folder,  paste0("shade_file_", habitat_parm$veg_growth_years,".rds"))
 temp_netlogo_daily_input_path <- here(temp_folder, "daily_input_file.csv")
 

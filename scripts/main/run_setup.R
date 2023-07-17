@@ -23,6 +23,3 @@ source(here("scripts", "main", "set_fhast_file_structure.R"))
 # Run the initialization 
 source(here("scripts","main","initialize_fhast.R"))
 
-# load all the input files, make basic parameter files,
-# also do some basic checking of files
-source(here("scripts","format_parameters","load_convert_parameters.R"))

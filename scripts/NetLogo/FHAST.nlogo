@@ -472,9 +472,9 @@ to setup
   set resolution_factor 600                                                                               ; Set the resolution factor
   set daily_input_csv csv:from-file "../../temporary/daily_input_file.csv"                     ; Read in the daily flow and temperature
   set flow_input_csv csv:from-file
-    (word "../../temporary/Depth_Velocity_Data_Input_" resolution "_" buffer ".csv")           ; Read in the depth CSV
+    (word "../../temporary/Depth_Velocity_Data_Input.csv")           ; Read in the depth CSV
   set shape_input_csv csv:from-file
-    (word "../../temporary/Shape_Data_Input_" resolution "_" buffer ".csv")                    ; Read in the shape file
+    (word "../../temporary/Shape_Data_Input.csv")                    ; Read in the shape file
   set daily_fish_csv csv:from-file "../../temporary/daily_fish_input.csv"                      ; Read in the daily fish csv
   set fish_params_csv csv:from-file "../../temporary/fish_params_input.csv"                    ; Read in the daily fish csv
   set pred_input_file_csv csv:from-file "../../temporary/predator_params_input.csv"            ; Read in the predator input csv

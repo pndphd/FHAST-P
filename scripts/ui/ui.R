@@ -71,6 +71,10 @@ input_file_tab <- tabPanel(
   textInput("aoi_file", "Optional Area of Interest"),
   shinyFilesButton("picker_aoi_file", "Select Area of Interest",
     "Please select the Area of Interest", FALSE),
+  # Optional area of interest
+  textInput("wild_file", "Optional Wildcard CSV"),
+  shinyFilesButton("picker_wild_file", "Select Wildcard CSV",
+                   "Please select the Wildcard CSV file", FALSE),
 )
 
 interaction_tab <- tabPanel(

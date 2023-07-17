@@ -301,6 +301,10 @@ shinyServer(function(input, output, session) {
     input, session, "picker_aoi_file", "aoi_file", picker_roots,
     "shp", aoi_path
   )
+  handle_file_picker(
+    input, session, "picker_wild_file", "wild_file", picker_roots,
+    "csv", wild_path
+  )
   
   handle_file_picker(
     input, session, "picker_tree_growth_file", "tree_growth_file",
@@ -465,6 +469,10 @@ shinyServer(function(input, output, session) {
   })
   
   observeEvent(input$aoi_file, {
+    validate_config(input, output)
+  })
+  
+  observeEvent(input$wild_file, {
     validate_config(input, output)
   })
 
@@ -774,7 +782,7 @@ save_config <- function(input) {
     input$fish_params_file, input$grid_center_file,
     input$grid_top_file, input$cover_file, input$canopy_cover_file,
     input$tree_growth_file, input$hab_params_file, input$interaction_file,
-    input$predator_file, input$raster_folder, input$aoi_file
+    input$predator_file, input$raster_folder, input$aoi_file, input$wild_file
   )
 }
 
@@ -821,6 +829,12 @@ load_config <- function(config_file, session) {
     )
     updateTextInput(session, "tree_growth_file",
                     value = make_fhast_relative_path(tree_growth_path)
+    )
+    updateTextInput(session, "aoi_file",
+                    value = make_fhast_relative_path(aoi_path)
+    )
+    updateTextInput(session, "wild_file",
+                    value = make_fhast_relative_path(wild_path)
     )
   }
 }
