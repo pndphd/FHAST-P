@@ -62,7 +62,9 @@ load_daily_conditions = function(daily_inputs_in) {
     hydro_file_name = daily_inputs_in["file",]
     
     # Read in the file and convert to date
-    hydro_file = read.csv(file = here(fhast_base_folder, hydro_file_name)) %>% 
+    daily_folder = str_sub(daily_path,
+                           end = max(unlist(str_locate_all(daily_path, "/"))))
+    hydro_file = read.csv(file = here(daily_folder, hydro_file_name)) %>% 
       mutate(date = mdy(date))
     
     # use left join to just get dates wanted and convert to dumb excel date format
@@ -96,7 +98,8 @@ load_daily_conditions = function(daily_inputs_in) {
             turb_ntu_temp = (params$turb_a + params$turb_b * flow_cms),
             turb_ntu = turb_ntu_temp* params$turb_cor + 
               (1 - params$turb_cor) * rnorm(1, mean = turb_ntu_temp, sd = params$turb_SD)) %>% 
-      select(-flow_cms_con, -temp_c_temp, -turb_ntu_temp)
+      select(-flow_cms_con, -temp_c_temp, -turb_ntu_temp) %>% 
+      ungroup()
   }
   output = output_data %>% 
     mutate(month = month(as_date(date, format = "%m/%d/%Y")))
@@ -187,10 +190,10 @@ calc_photo_period = function(shape_file_in,
     summarize(geometry = st_union(geometry)) %>% 
     st_centroid() %>% 
     st_transform(st_crs("EPSG:4326"))
-  
+
   df_out = df_in %>% 
     mutate(photo_time = as.POSIXct(x = mdy(date),
-                                   tz = tz_lookup(location)),
+                                   tz = tz_lookup(location, method = "accurate")),
            sun_set = sunriset(crds = st_coordinates(location),
                               dateTime = photo_time,
                               proj4string=CRS(st_crs(location)$proj4string),
@@ -203,7 +206,6 @@ calc_photo_period = function(shape_file_in,
                                POSIXct.out=TRUE)$day_frac,
            photoperiod = sun_set - sun_rise) %>% 
     select(-photo_time, -sun_rise, - sun_set)
-  
 }
 
 # Make the time series plot
@@ -212,7 +214,7 @@ make_daily_timeseries_plot = function(output_data) {
 time_series_plot_f = ggplot(data = output_data, aes(x = mdy(date), y = flow_cms)) +
   theme_classic(base_size = 20) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-  geom_path(linewidth=1,linetype = "solid") +
+  geom_path(linetype = "solid") +
   labs(x = "Date", y = "Flow (cms)") +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank(),
@@ -220,7 +222,7 @@ time_series_plot_f = ggplot(data = output_data, aes(x = mdy(date), y = flow_cms)
 time_series_plot_t = ggplot(data = output_data, aes(x = mdy(date), y = temp_c)) +
   theme_classic(base_size = 20) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-  geom_path(linewidth=1,linetype = "solid") +
+  geom_path(linetype = "solid") +
   labs(x = "Date", y = "Temperature (\u00B0C)") +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank(),
@@ -228,7 +230,7 @@ time_series_plot_t = ggplot(data = output_data, aes(x = mdy(date), y = temp_c)) 
 time_series_plot_u = ggplot(data = output_data, aes(x = mdy(date), y = turb_ntu)) +
   theme_classic(base_size = 20) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-  geom_path(linewidth=1,linetype = "solid") +
+  geom_path(linetype = "solid") +
   labs(x = "Date",
        y = "Turbidity (NTUs)",
        caption = paste0("Three time series graph of the daily conditions.")) +
@@ -272,8 +274,7 @@ make_hist_plot = function(data_in, variabel, legend, caption = ""){
                    bins = 30,
                    color = cbPalette[1],
                    fill = cbPalette[1],
-                   alpha = 0.25,
-                   linewidth = 1) +
+                   alpha = 0.25) +
     scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
     labs(x = legend,

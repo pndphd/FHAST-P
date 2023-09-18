@@ -14,13 +14,21 @@ input_tab <- tabPanel(
   "Configuration Directory",
   textInput("config_file", "Configuration File"),
   shinyFilesButton("picker_config_file", "Select Configuration File",
-    "Please select the Configuration File", FALSE),
+                     "Please select the Configuration File", FALSE),
 )
 
 input_file_tab <- tabPanel(
   "Input File",
   # Run name
   textInput("run_name", "Run Name"),
+  
+  # Notes
+  textInput("notes_file", "Notes File"),
+  shinyFilesButton("picker_notes_file", "Select Notes File",
+                   "Please select the notes file", FALSE),
+  textAreaInput("sim_ui_notes", "Simulation Notes", 
+                width = "50%",
+                height = "200px"),
   
   # Input folder
   textInput("raster_folder", "Depth and Velocity Raster Directory"),
@@ -34,7 +42,7 @@ input_file_tab <- tabPanel(
     "Please select the Daily Conditions", FALSE),
 
   # Fish files
-  textInput("fish_pop_file", "Fish Popoulation"),
+  textInput("fish_pop_file", "Fish Population"),
   shinyFilesButton("picker_fish_pop_file", "Select Fish Population",
     "Please select the Fish Population", FALSE),
   textInput("fish_params_file", "Fish Parameters"),

@@ -18,7 +18,7 @@ make_dir_if_missing <- function(file_path) {
 get_path <- function(base_folder, input_path) {
   path <- ifelse(isAbsolutePath(input_path),
                  input_path,
-                 here(base_folder, input_path)
+                 getAbsolutePath(input_path, workDirectory=base_folder)
   )
   return(path)
 }

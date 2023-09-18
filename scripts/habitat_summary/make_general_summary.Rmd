@@ -1,8 +1,7 @@
 ---
 output:  html_document
 number_sections: true
-title: | 
-  | FHAST Habitat Summary
+title: "FHAST Habitat Summary"
 header-includes:
     - \usepackage{setspace}\singlespacing
     - \usepackage{float}
@@ -82,6 +81,10 @@ n = 0
 ```
 
 ### Simulation name: `r run_name`
+Notes
+```{r, echo=FALSE, }
+cat(readLines(notes_path), sep = '\n')
+```
 ***
 ## Tabular Outputs 
 
@@ -94,7 +97,7 @@ fish_count <- length(unique(fish_summary_stats$species))
 
 kable(fish_summary_stats,
       caption = paste0("The fish summary statistics for both juvenile and adult life stages of the ", fish_count, " specie(s) of fish."),
-      col.names = c("Species", "Life Stage", "Metabolic Rate (j/day)"))
+      col.names = c("Species", "Life Stage", "Metabolic Rate (j/day)", "Metabolic Rate (Full) (j/day)"))
 ```
 
 \newpage
@@ -142,7 +145,7 @@ knitr::include_graphics(fish_net_energy_plot)
 ### Run inputs
 The main input file:
 ```{r, echo=FALSE}
-cat(readLines(file.path(input_folder, fhast_config_file)), sep = '\n')
+cat(readLines(file.path(input_path$path)), sep = '\n')
 ```
 ---
 

@@ -10,6 +10,9 @@
 # units are whatever the crs of the shape file is
 simplfly_tolarence = habitat_parm$resolution/2
 
+# Set a different validity check then the default one... for some reason
+rgeos::set_RGEOS_CheckValidity(2L)
+
 ##### Load functions #####
 # Load Libraries and some base parameters
 source(here("scripts","shade","shade_functions.R"))
@@ -28,7 +31,6 @@ input_output_file_paths <- c(canopy_path, tree_growth_path,
 hash_storage <-here(temp_folder, "calculate_shade_hashes.txt")
 
 if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
-
   ##### Load Files #####
   # load the daily files
   daily_file <- read.csv(file = temp_daily_file_path)
@@ -44,12 +46,19 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
   # Load the canopy cover zone file 
   # simplify it to speed up
   if(juvenile_run == TRUE){
+    # make attributes constant to supress warnings
+    st_agr(canopy_shape) = "constant"
+    st_agr(clip_mask) = "constant"
+    
     shade_shape = canopy_shape %>% 
       st_intersection(clip_mask) %>% 
       # Filter out empty ones
       filter(!st_is_empty(.)) %>% 
       grow_trees(parms = tree_growth_parms,
                  years = habitat_parm$veg_growth_years) %>%
+      # This procedure simplifies the canopy while making it remain valid
+      st_simplify(dTolerance = simplfly_tolarence) %>%
+      st_buffer(0) %>%
       st_simplify(dTolerance = simplfly_tolarence) %>%
       group_by(height) %>%
       summarize() %>% 
@@ -74,7 +83,7 @@ if (!compare_last_run_hashes(hash_storage, input_output_file_paths)) {
   result = future_map(times_list, ~make_shade_shape(shade_shape, .x)) %>% 
     future_map(~summarise(.x, shade = sum(shade)/sum(shade), do_union = TRUE)) %>% 
     future_map2(seq(1,12,1), ~rename(.x, !!paste0("shade_", .y) := shade))
-  
+
   # save the files
   saveRDS(result, file = temp_shade_file_path)
 

@@ -12,7 +12,7 @@ make_shade_shape = function(shape_file_in,
   # Get the time and time zone based on location
   time = as.POSIXct(
     x = time_in,
-    tz = tz_lookup(location)
+    tz = tz_lookup(location, method = "accurate")
   )
   
   # get the sunset time
@@ -47,7 +47,6 @@ make_shade_shape = function(shape_file_in,
       proj4string=CRS(st_crs(location_in)$proj4string)
     )
     
-
     # calculate the foot print of the shade
     # the height attribute needs to be in the same units as the crs
     footprint = shadowFootprint(

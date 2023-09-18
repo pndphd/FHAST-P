@@ -147,8 +147,6 @@ get_cell_swim_speeds <- function(df, fish_parm) {
     )
 }
 
-
-
 # calculation of cheapest paths between a given set of start and end points --------
 # based on Djikstra's algorithm
 # returns the distance and lat distance coordinates of cells and the number of paths that went through that cell

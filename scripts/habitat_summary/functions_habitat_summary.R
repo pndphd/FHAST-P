@@ -13,7 +13,7 @@ make_line_plot <- function(data_frame_in, x_axis, y_axis, x_lab, y_lab, title = 
     ggtitle(title) +
     geom_path(
       color = cbPalette[1],
-      size = 1,
+      linewidth = 1,
       linetype = "solid"
     ) +
     scale_y_continuous(y_lab) +

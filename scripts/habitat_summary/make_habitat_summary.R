@@ -19,7 +19,7 @@ shape_file <- read.csv(here("temporary",
 raster_file <- read.csv(here("temporary",  
                              paste0("Depth_Velocity_Data_Input.csv")))
 
-# Load the daily enviromental inputs 
+# Load the daily environmental inputs 
 daily_file <- read.csv(here("temporary",  "daily_input_file.csv")) %>%
   mutate(date = mdy(date))
 
@@ -36,22 +36,27 @@ cover_fra_model <- read_rds(here(temp_folder, "pct_cov_convers_model.rds"))
 
 ##### Pre Processing #####
 # Make a data frame with each cell at each flow value
+# This filters on the aoi
 habitat_flows_all <- make_cell_data() 
 
 # Get all the flows for which we have a raster
 flows <- as.numeric(unique(habitat_flows_all$flow))
 
 # Make a screen for cells that are never wet
-# Get the mad flow from the dialy enviroemntal file
+# Get the max flow from the daily environmental file
 max_flow = flows[min(which(flows > max(daily_file$flow_cms)))]
 # Get all cells that are wet at that max flow
 habitat_open <- habitat_flows_all %>% 
   filter(flow == max_flow,
          wetted_fraction != 0) %>% 
-  select(lat_dist, distance) 
+  select(lat_dist, distance)
+
+# Make a variable to calculate inundation fraction
+analyzed_cells = NROW(habitat_open)/NROW(filter(habitat_flows_all, flow == min(flow)))
+
 # Filter the habitat file
 habitat_flows = habitat_open %>% 
-  left_join(habitat_flows_all)
+  left_join(habitat_flows_all, by = c("lat_dist", "distance"))
 # Remove large unused file
 rm(habitat_flows_all)
 
@@ -65,12 +70,12 @@ fish_combos <- expand.grid(
   select(starts_with("mig_path_"),
          distance, lat_dist)
 
-# Get a habitat file for the fixerd items
+# Get a habitat file for the fixed items
 habitat_fixed = shape_file %>% 
   right_join(habitat_open,  by = c("distance", "lat_dist")) %>% 
   select(-starts_with("shade_")) 
 
-# Make an average predator form the predator parameter file
+# Make an average predator from the predator parameter file
 pred_parm <- read_csv(file = predator_path,
                       col_types = cols(.default = "d", species = "c")) %>%
   # the 1 ensures the names are kept
@@ -101,14 +106,15 @@ habitat_variable = daily_data_sets %>%
   select(-area) %>% 
   left_join(habitat_fixed, by = c("lat_dist", "distance")) %>% 
   group_by(date) %>% 
-  mutate(reach_preds = round(habitat_parm$pred_per_area * sum(wetted_area))) %>% 
+  mutate(reach_preds = round(habitat_parm$pred_per_area * sum(wetted_area)),
+         # Add in variable to calculate inundation
+         wetted = ifelse(wetted_area > 0, 1, 0)) %>% 
   ungroup() 
 
 if(adult_run == TRUE){
   # extract the migration data
   migration_data = daily_data_sets %>% 
     map_df(.f = ~.x$mig_data)
-  
   # Get the Final adult migration data
   final_adult_migration <- na.omit(migration_data)
   # Sum all paths in each cell by species
@@ -126,7 +132,7 @@ if(adult_run == TRUE){
 rm(daily_data_sets)
 gc()
 
-# Get the sammries of the dailyu data
+# Get the summaries of the daily data
 data_summary = fish_combos %>% 
   pmap(.f=~make_data_summary(...,
                              habitat = habitat_variable))
@@ -138,22 +144,40 @@ gc()
 # Project the map data onto a shape file
 map_data <- data_summary %>%
   map(~ left_join(.x$average_map, grid_file, by = c("distance", "lat_dist"))) %>% 
-  map(~ st_as_sf(.x)) %>% 
-  setNames(map(data_summary, ~paste0(.x$species, "-", .x$lifestage)))
+  map(~ st_as_sf(.x)) %>%
+  setNames(map(data_summary, ~paste0(.x$species, "-", .x$lifestage))) 
+
+map_data_full <- data_summary %>%
+  map(~ left_join(.x$average_map_full, grid_file, by = c("distance", "lat_dist"))) %>% 
+  map(~ st_as_sf(.x)) %>%
+  setNames(map(data_summary, ~paste0(.x$species, "-", .x$lifestage))) 
 
 # Get a mean habitat map
 mean_map <- map_data[[1]] %>%  
+  #remove fish specific things
+  select(-pred_mort_risk, -benthic_flag, -fish_met_j_per_day, -energy_intake, -net_energy) %>% 
   mutate(below_d_cutoff = ifelse(depth < habitat_parm$dep_cutoff, 1, 0) ,
          below_v_cutoff = ifelse(velocity < habitat_parm$vel_cutoff, 1, 0)) 
 
-# make the fish maps into a df for export
-fish_maps_df <- map_data %>% 
-  reduce(~bind_rows(.x, .y))
+mean_map_full <- map_data_full[[1]] %>%  
+  #remove fish specific things
+  select(-pred_mort_risk, -benthic_flag, -fish_met_j_per_day, -energy_intake, -net_energy) %>% 
+  mutate(below_d_cutoff = ifelse(depth < habitat_parm$dep_cutoff, 1, 0) ,
+         below_v_cutoff = ifelse(velocity < habitat_parm$vel_cutoff, 1, 0)) 
+
 
 # add flow data to daily averages
 daily_data = data_summary %>%
   map(~ left_join(.x$average_day, select(daily_file, date, day, flow_cms),
-                  by = "date"))%>% 
+                  by = "date")) %>%
+  map(~mutate(.x, wetted = wetted * analyzed_cells)) %>% 
+  setNames(map(data_summary, ~paste0(.x$species, "-", .x$lifestage)))
+
+# add flow data to daily averages
+daily_data_full = data_summary %>%
+  map(~ left_join(.x$average_day_full, select(daily_file, date, day, flow_cms),
+                  by = "date")) %>%
+  map(~mutate(.x, wetted = wetted * analyzed_cells)) %>% 
   setNames(map(data_summary, ~paste0(.x$species, "-", .x$lifestage)))
 
 # Format adult migration data 
@@ -170,6 +194,40 @@ if (adult_run == 1){
 }
 
 ##### Summary Stats #####
+# The same set for everything including outside the aoi
+summary_stats_full <- data.frame(cover_area_m2 = sum(mean_map_full$cover_fra *
+                                                       mean_map_full$wetted_area)) %>%
+  mutate(
+    near_shore_cover_area_m2 = sum(mean_map_full$wetted_area *
+                                     (mean_map_full$area > mean_map_full$wetted_area) *
+                                     mean_map_full$cover_fra),
+    near_shore_cover_area_below_v_m2 = sum(mean_map_full$wetted_area *
+                                             (mean_map_full$velocity < habitat_parm$vel_cutoff) *
+                                             (mean_map_full$area > mean_map_full$wetted_area) *
+                                             mean_map_full$cover_fra),
+    percent_area_below_v_cutoff = sum((mean_map_full$velocity < habitat_parm$vel_cutoff) *
+                                        mean_map_full$wetted_area) /
+      sum(mean_map_full$wetted_area) * 100,
+    percent_area_below_d_cutoff = sum((mean_map_full$depth < habitat_parm$dep_cutoff) *
+                                        mean_map_full$wetted_area) /
+      sum(mean_map_full$wetted_area) * 100,
+    percent_near_shore_area = sum(mean_map_full$wetted_area *
+                                    (mean_map_full$area > mean_map_full$wetted_area))/
+      sum(mean_map_full$wetted_area) * 100,
+    CBC_percent = sum((mean_map_full$cover_fra) *
+                        mean_map_full$wetted_area *
+                        (mean_map_full$depth < habitat_parm$dep_cutoff) *
+                        (mean_map_full$velocity < habitat_parm$vel_cutoff)) /
+      sum(mean_map_full$wetted_area) * 100,
+    average_cover_percent = sum((mean_map_full$cover_fra) *
+                                  mean_map_full$wetted_area) /
+      sum(mean_map_full$wetted_area) * 100,
+    full_inundation_days = NROW(filter(daily_data_full[[1]], wetted == 1))) %>%
+  pivot_longer(cols = everything(), names_to = "Item", values_to = "Value_Full") %>% 
+  mutate(Item = str_replace_all(Item, c("-" = " ", "_" = " ")),
+         Item = str_replace_all(Item, "m2", "(m^2)"),
+         Value_Full = round(Value_Full,2)) 
+
 # A set of summary stats for the habitat
 summary_stats <- data.frame(cover_area_m2 = sum(mean_map$cover_fra *
                                                   mean_map$wetted_area)) %>%
@@ -197,11 +255,21 @@ summary_stats <- data.frame(cover_area_m2 = sum(mean_map$cover_fra *
       sum(mean_map$wetted_area) * 100,
     average_cover_percent = sum((mean_map$cover_fra) *
                                   mean_map$wetted_area) /
-      sum(mean_map$wetted_area) * 100) %>%
+      sum(mean_map$wetted_area) * 100,
+    full_inundation_days = NROW(filter(daily_data[[1]], wetted == 1))) %>%
   pivot_longer(cols = everything(), names_to = "Item", values_to = "Value") %>% 
   mutate(Item = str_replace_all(Item, c("-" = " ", "_" = " ")),
-         Item = str_replace_all(Item, "m2", "(m\u00B2)"),
-         Value = round(Value,2))
+         Item = str_replace_all(Item, "m2", "(m^2)"),
+         Value = round(Value,2)) %>% 
+  left_join(summary_stats_full, by = "Item")
+
+# A set of summary stats for the fish in the full habitat
+fish_summary_stats_full <- map_data_full %>%
+  map_df(~ data.frame(met_j_per_day_full =
+                        round(mean(.x$fish_met_j_per_day, na.rm = TRUE),2))) %>% 
+  mutate(species = word(names(map_data_full),1,1, sep = fixed("-")),
+         lifestage = word(names(map_data_full),2,2, sep = fixed("-"))) %>% 
+  relocate(species, lifestage) 
 
 # A set of summary stats for the fish
 fish_summary_stats <- map_data %>%
@@ -209,7 +277,8 @@ fish_summary_stats <- map_data %>%
                         round(mean(.x$fish_met_j_per_day, na.rm = TRUE),2))) %>% 
   mutate(species = word(names(map_data),1,1, sep = fixed("-")),
          lifestage = word(names(map_data),2,2, sep = fixed("-"))) %>% 
-  relocate(species, lifestage)
+  relocate(species, lifestage) %>% 
+  left_join(fish_summary_stats_full, by = c("species", "lifestage"))
 
 # and for the migrating adults
 if (adult_run == 1){
@@ -318,7 +387,6 @@ if (adult_run == 1){
   display_plot(migration_map, 15, 15)
 }
 
-
 # Metabolic map
 metabolic_map <- map_data %>% 
   map2(.x = ., .y = names(map_data), .f = ~make_map(
@@ -342,8 +410,6 @@ net_energy_map <-  map_data %>%
   wrap_plots(ncol = 1, widths = plot_widths,
              heights = net_energy_map_length * plot_widths)
 display_plot(net_energy_map, 15, 15)
-
-
 
 ##### Histograms and bar plots #####
 # cover facet histogram
@@ -371,21 +437,18 @@ if (adult_run == 1){
   display_plot(migration_energy_hist)
 } 
 
-
 ##### Save Data #####
 # List of the simple data frames to write
 df_outputs = list(mean_map,
-                  fish_maps_df,
                   daily_data[[1]])
 
 # Names of the simple data frames
-df_outputs_names = list("habitat_map_data.csv",
-                        "fish_map_data.csv",
-                        "habitat_daily_data.csv")
+df_outputs_names = list("habitat_map_data",
+                        "habitat_daily_data")
 
 if (adult_run == TRUE){
   df_outputs = append(df_outputs, list(adult_migration_energy_data))
-  df_outputs_names = append(df_outputs_names, list("adult_migration_energy_data.csv"))
+  df_outputs_names = append(df_outputs_names, list("adult_migration_energy_data"))
 }
 
 # Save all the basic outputs 
@@ -398,7 +461,12 @@ walk2(df_outputs,
 
 # Write all the fish daily data sets
 walk2(.x = daily_data, .y = names(daily_data),
-      .f = ~write.csv(x = .x, file = here(output_folder, paste0(.y,".csv")),
+      .f = ~write.csv(x = .x, file = here(output_folder, paste0(.y,"_daily.csv")),
+                      row.names = FALSE))
+
+# Write all the fish daily data sets
+walk2(.x = map_data, .y = names(map_data),
+      .f = ~write.csv(x = .x, file = here(output_folder, paste0(.y,"_map.csv")),
                       row.names = FALSE))
 
 if (adult_run == TRUE){
@@ -483,6 +551,13 @@ object_name_list = c(data_name_list, plot_name_list)
 walk2(object_list, object_name_list, ~saveRDS(
   object = .x,
   file = here("temporary", paste0(.y, ".rds"))))
+
+# Save the summary tabel sas CSV
+walk2(data_list, data_name_list, ~write.csv(
+  # Replace the fancy squared character for CSV
+  x = mutate_all(.x, .funs = ~str_replace_all(.,"(m\u00B2)", " m^2")),
+  file = here(output_folder, paste0(.y, ".csv")),
+   row.names = FALSE))
 
 # Save for output
 pwalk(list(plot_list, plot_name_list, plot_dimeshions), ~ggsave(

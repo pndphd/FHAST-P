@@ -21,13 +21,17 @@ input_paths = list(grid_center_line_path,
 
 # Check if they exist
 walk(input_paths, ~check_file_exists(.x))
-
 ##### Read in the files #####
-grid_center_line <- st_zm(st_read(grid_center_line_path, quiet = TRUE))
-grid_top_marker <- st_zm(st_read(grid_top_marker_path, quiet = TRUE))
+cover_shape <- st_read(cover_path, quiet = TRUE)
+base_crs <- st_crs(cover_shape)
+grid_center_line <- st_read(grid_center_line_path, quiet = TRUE) %>% 
+  st_zm() %>% 
+  st_transform(base_crs)
+grid_top_marker <- st_read(grid_top_marker_path, quiet = TRUE) %>% 
+  st_zm() %>% 
+  st_transform(base_crs)
 canopy_shape <- st_read(canopy_path, quiet = TRUE)
 tree_growth_parms_in <- read.csv(file = tree_growth_path, sep = ",", header = TRUE)
-cover_shape <- st_read(cover_path, quiet = TRUE)
 daily_inputs <- load_text_file(daily_path)
 fish_daily_inputs <- read.csv(file = fish_population_path, sep = ",", header = TRUE) %>%
   mutate(date = mdy(date))
@@ -42,12 +46,18 @@ pred_parm_temp <- read_csv(file = predator_path,
 hab_parm_temp <- load_text_file(hab_path)
 int_parm_temp <- load_text_file(interaction_path)
 
+if (!is.na(aoi_path)) {
+  aoi_shape <- st_read(aoi_path, quiet = TRUE) %>% 
+    st_zm() %>% 
+    st_transform(base_crs)
+}
+
 ##### Check and format shape files #####
 # Check that these are the same crs
 if (!compareCRS(grid_center_line, grid_top_marker) |
     !compareCRS(canopy_shape, grid_top_marker) |
     !compareCRS(canopy_shape, cover_shape)){
-  stop('The CRSs of the two shape files and the aoi are not the same.')
+  stop('The CRSs of aome shape files are not the same.')
 }
 
 # Check the the center line is one object
@@ -75,6 +85,7 @@ if("wildcard" %in% cover_shape$class){
     filter(class != "wildcard") %>% 
     bind_rows(wild_shape_new)
 }
+
 
 ##### Convert into usable formats #####
 # fish parameters to named list with species as index

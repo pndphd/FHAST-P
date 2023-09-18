@@ -273,7 +273,6 @@ globals [
 
   ; pathfinding data holders
   pathfinding_dirty_patches      ; patch-set of patches that have pathfinding data that need to be cleared.
-  survival_to_path_score_factor  ; multiplier for predation risk along a path used in scoring possible migration paths, higher values mean predation risk is weighted higher
 ]
 
 ;; Define patch variables
@@ -425,7 +424,6 @@ turtles-own [
   overall_smolting_prob           ; Product of prob of smolting based on photoperiod and prob of smolting based on flength
   fish_outmigration_prob_velocity ; Probability of outmigrating due to velocity
   overall_outmigration_prob       ; Overall probability of outmigrating due to changes in velocity, length, and photoperiod
-
   velocity_experience_list        ; List of mean radius cell velocity fish experience each day
   path_survival_list              ; ; A list of path survival probabilities for drifter fish (should only have max two elements inside)
 
@@ -582,7 +580,6 @@ to setup
   set_partial_hab_rating
 
   set pathfinding_dirty_patches no-patches
-  set survival_to_path_score_factor 100
 
 end
 
@@ -1334,7 +1331,6 @@ to place_predators
         let exponent -1 * (item n partial_hab_rating + item n shade_glm * shade_binary + item n depth_glm * today_depth + item n velocity_glm * today_velocity)
         let model_prediction 1 / (1 + exp exponent)
         ; values < 0.5 indicate predictions of predator absence, so vals are set to 0
-        if (model_prediction < 0.5) [set model_prediction 0]
         set hab_rating lput model_prediction hab_rating
         set adj_hab_rating lput (model_prediction * wetted_area) adj_hab_rating
 
@@ -1588,6 +1584,7 @@ to hatch_fish
         set size 2
         set shape "fish"
         set destination one-of wet_patches with [today_velocity < .5]  ; Place the turtle in a wet patch with velocity less than 5 m2 (this can be changed)
+        ;set destination one-of wet_patches with [pycor = reach_start - 10 and today_velocity < 1 ] ; for testing migration patterns
         move-to destination
         set color green
         set exit_status 0
@@ -1681,7 +1678,8 @@ to calculate_outmigration_probability
   set fish_outmigration_prob_velocity (evaluate_logistic "outmigrate_velocity" species percent_change_velocity)
 
   ; Overall outmigration prob combines the probability of smolting due to photoperiod, the probability of smolting due to length, and the probability of migrating due to change in velocity
-  set overall_outmigration_prob fish_smolting_prob_flength * (1 + fish_smolting_prob_photoperiod + fish_outmigration_prob_velocity)
+
+  set overall_outmigration_prob max (list fish_outmigration_prob_velocity (fish_smolting_prob_photoperiod * fish_smolting_prob_flength))
 
   if ((random-float 1.0) < overall_outmigration_prob) [ set is_migrant true
   set breed migrants
@@ -1788,7 +1786,10 @@ to calculate_food_availability
       set daily_intake capture_area * hab_drift_con * today_velocity * capture_success * 3600 * photoperiod
     ]
     [
-      set daily_intake pi * (item my_species_id feeding_speed) * (3600 * (24 - photoperiod)) / ln((item my_species_id feeding_speed) * (3600 * (24 - photoperiod))) *  hab_ben_con * [f_length] of myself / 1e4
+      ; Calculate the fish width assuming it has a density of water
+      let f_width sqrt([mass] of myself / [f_length] of myself)
+      let n_steps (item my_species_id feeding_speed) * [f_length] of myself / f_width * (3600 * (24 - photoperiod))
+      set daily_intake pi * n_steps * f_width ^ 2 / ln(n_steps) / 1e4 *  hab_ben_con
     ]
 
   set active_metab_rate (calculate_metabolic temperature [mass] of myself my_species_id swim_speed)
@@ -2384,8 +2385,8 @@ to-report find_pathable_destination_at_y [fish y_target move_dist]
             [
               let survival [path_survival] of cur_patch * calculate_patch_survival fish
               let move_cost [path_to_here_cost] of cur_patch + calculate_move_cost cur_patch
-              let survival_score (1 - survival) * survival_to_path_score_factor
-              let score move_cost + y_diff_distance y_target + survival_score
+              let survival_score (1 - survival)
+              let score (move_cost + y_diff_distance y_target) * survival_score
               ; If this is the first time being visited or this path was less risky than an alternative
               if (has_visited? = false) or (path_score > score)
               [
@@ -2581,7 +2582,6 @@ to-report find_possible_drift_destinations [fish max_dist]
         ask fish [set strand_status 1]
       ]
       [
-        print "drifter fish found no destinations, didn't reach end of river, and wasn't stranded"
       ]
     ]
     let cur_patch [patch-here] of fish
@@ -3259,7 +3259,7 @@ SWITCH
 106
 draw_fish_movements?
 draw_fish_movements?
-1
+0
 1
 -1000
 

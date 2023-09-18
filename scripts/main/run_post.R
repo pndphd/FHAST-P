@@ -3,6 +3,8 @@
 ########################################
 
 # Make the habitat summary file
+message("NetLogo run finished.\n")
+message("Running post-processing.\n")
 source(here("scripts", "habitat_summary", "make_habitat_summary.R")) 
 
 if (juvenile_run == TRUE){
@@ -27,7 +29,7 @@ if (adult_run == TRUE){
                     output_file = here(output_folder, "report_adult_migration.html") )
 }
 
-
+message("!!! FHAST RUN COMPLETE !!!\n")
 ################
 # RUN COMPLETE #
 ################

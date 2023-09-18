@@ -50,7 +50,6 @@ make_map_plot <- function() {
   
   # If there is an AOI add it in
   if (!is.na(aoi_path)) {
-    aoi_shape <- st_read(aoi_path, quiet = TRUE)
     map_plot <- map_plot +
       geom_sf(data = aoi_shape, aes(color = "AOI"), fill = NA, size = 2)
   }
@@ -69,7 +68,7 @@ make_map_plot <- function() {
       "The layout of the spatial input files. A green background means\n",
       "these shapes are within the bounds of the raster extent.")) +
     theme(plot.caption = element_text(hjust = 0, size = 15),
-          panel.border = element_rect(colour = "black", fill = NA, size = 1),
+          panel.border = element_rect(colour = "black", fill = NA),
           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
   ##### Save the data #####

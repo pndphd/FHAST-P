@@ -5,7 +5,7 @@ make_data_summary = function(..., habitat){
   # Get the attributes of the current fish
   fish_type = list(...)
   
-  # get eh life stage
+  # get the life stage
   ls = fish_type$life_stage
   
   # Which species are we looking at
@@ -19,6 +19,10 @@ make_data_summary = function(..., habitat){
   
   # Calculate the fish mass
   fish_mass = pl$length_mass_a[id] * fish_length^pl$length_mass_b[id]
+  
+  # get example width for benthic feeding based on fish having the density of water 1g/cm^3
+  # and being approximated as a rectangle
+  fish_width = sqrt(fish_mass/fish_length)
   
   # Check if the fish feeds
   feeding_flag = ifelse(ls == "adult" & pl$adult_feeding[id] == 0, 0, 1)
@@ -101,9 +105,11 @@ make_data_summary = function(..., habitat){
       # Calculate food eaten per day
       drift_eaten = capture_success *capture_area * habitat_parm$hab_drift_con *
         velocity * 86400 * photoperiod,
-      ben_eaten = pi * pl$feeding_speed[id] * 86400 * (1 - photoperiod) /
-        log(pl$feeding_speed[id] * (1 - photoperiod) * 86400) *
-        fish_length^2/1E4 * habitat_parm$hab_bentic_con,
+      ben_eaten = pi * pl$feeding_speed[id] * fish_length / fish_width *
+        86400 * (1 - photoperiod)  *
+        fish_width^2 * habitat_parm$hab_bentic_con / (1E4 *
+        log(pl$feeding_speed[id] * fish_length / fish_width *
+              (1 - photoperiod) * 86400)),
       ben_avaiable = habitat_parm$hab_bentic_con *
         ben_food_fra * wetted_area,
       # Calculate the food eaten
@@ -121,13 +127,29 @@ make_data_summary = function(..., habitat){
            -intake_drift_energy, -small_cover_fra)
 
   # Make the average map
+  average_map_full = habitat %>% 
+    select(-date) %>% 
+    group_by(lat_dist, distance) %>% 
+    summarise_all(list(~mean(., na.rm = TRUE))) %>% 
+    ungroup()
+  
   average_map = habitat %>% 
+    filter(aoi == 1) %>% 
+    select(-date) %>% 
     group_by(lat_dist, distance) %>% 
     summarise_all(list(~mean(., na.rm = TRUE))) %>% 
     ungroup()
   
   # Make the average daily data 
+  average_day_full = habitat %>%
+    mutate(total_cover = wetted_area * cover_fra,
+           date = mdy(date)) %>% 
+    group_by(date) %>% 
+    summarise_all(list(~mean(., na.rm = TRUE))) %>% 
+    ungroup()
+  
   average_day = habitat %>%
+    filter(aoi == 1) %>% 
     mutate(total_cover = wetted_area * cover_fra,
            date = mdy(date)) %>% 
     group_by(date) %>% 
@@ -140,6 +162,8 @@ make_data_summary = function(..., habitat){
   
   return(list(average_map = average_map,
               average_day =  average_day,
+              average_map_full = average_map_full,
+              average_day_full =  average_day_full,
               lifestage = ls,
               species = pl$specie[id]))
 }

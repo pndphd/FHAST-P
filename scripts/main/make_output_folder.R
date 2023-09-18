@@ -4,6 +4,9 @@ output_shape_folder = here(output_folder, "shape_files")
 dir.create(output_folder)
 dir.create(output_shape_folder)
 
+# Copy the input file to the output folder
+file.copy(config_file_path, here(output_folder, fhast_config_file))
+
 # Write the location of the input folder so the markdown files know where it is
 write.table(here(fhast_base_folder, fhast_config_file),
             file = here("temporary", "input_file_path.txt"),

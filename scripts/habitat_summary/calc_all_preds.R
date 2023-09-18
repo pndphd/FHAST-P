@@ -22,13 +22,11 @@ calc_all_preds = function(p_id, pred_habitat, fish_length){
              pred_parm$pred_glm_velocity[[p_id]] * velocity +
              pred_parm$pred_glm_substrate[[p_id]] * substrate,
            # Calculate the habitat rating
-           hab_rating = 1 / (1 + exp(-input))* ifelse(wetted_area > 0, 1, 0),
-           # Set the cutoff for predator presence
-           hab_rating_cutoff = ifelse(hab_rating > 0.5, hab_rating, 0)) %>% 
+           hab_rating = 1 / (1 + exp(-input))* ifelse(wetted_area > 0, 1, 0)) %>% 
     group_by(date) %>% 
     mutate(# Place predators
-      predators = replace_na(round((hab_rating_cutoff * wetted_area) /
-                                     sum(hab_rating_cutoff * wetted_area) *
+      predators = replace_na(round((hab_rating * wetted_area) /
+                                     sum(hab_rating * wetted_area) *
                                      reach_preds), 0)) %>% 
     ungroup() %>% 
     mutate(# Calculate the temp effect 

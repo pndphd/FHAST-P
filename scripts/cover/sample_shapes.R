@@ -65,10 +65,10 @@ hash_storage <-here(temp_folder, "sample_shapes_run_hashes.txt")
                                       shape_files,
                                       the_variables,
                                       the_variables) %>%
-    # Add in column fo benthic food, cover and small cover
-    mutate(ben_food_fra = rowSums(across(benthic_food_habitat)),
-           cover_fra = rowSums(across(cover_habitat)),
-           small_cover_fra = rowSums(across(small_cover_habitat)))
+    # Add in column for benthic food, cover and small cover
+    mutate(ben_food_fra = rowSums(across(all_of(benthic_food_habitat))),
+           cover_fra = rowSums(across(all_of(cover_habitat))),
+           small_cover_fra = rowSums(across(all_of(small_cover_habitat))))
   
  
   
@@ -79,7 +79,7 @@ hash_storage <-here(temp_folder, "sample_shapes_run_hashes.txt")
       st_as_sf(sf_column_name = "geometry") 
   } else {
     # Load the aoi shape
-    aoi_shape = st_read(aoi_path, quiet = TRUE) %>% 
+    aoi_shape = aoi_shape %>% 
     mutate(aoi = 1) %>% 
     select(aoi)
     

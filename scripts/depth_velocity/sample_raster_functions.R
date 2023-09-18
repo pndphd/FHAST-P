@@ -70,7 +70,7 @@ sample_grid = function(stack = NULL,
                        grid = NULL,
                        flows = NULL,
                        type = NULL){
-  
+
   type_letter = get_type_letter(type)
 
   samples = stack %>% 

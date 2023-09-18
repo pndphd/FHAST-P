@@ -21,9 +21,9 @@ make_cell_data <- function(){
     select(-starts_with("mean.D"),
            -starts_with("mean.V"),
            -starts_with("wetd.D")) %>%
-    right_join(spread_data, by = c("lat_dist", "distance")) %>% 
+    right_join(spread_data, by = c("lat_dist", "distance")) #%>% 
     # get only the AOI parts
-    filter(aoi == 1)
+    #filter(aoi == 1)
   
   # remove some unused things
   rm(spread_data, habitat_temp)

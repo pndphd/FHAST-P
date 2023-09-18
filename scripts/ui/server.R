@@ -207,8 +207,7 @@ shinyServer(function(input, output, session) {
   volumes <- getVolumes()
 
   # Use a base directory of the config file for everything else.
-  picker_roots <- c(fhast_base_folder)
-  names(picker_roots) <- c("fhast_base_folder")
+  picker_roots <- volumes()
 
   output$habitat_params_ui <- renderUI({
     has_rendered_habitat <<- TRUE
@@ -256,7 +255,11 @@ shinyServer(function(input, output, session) {
     input, session, "picker_raster_folder", "raster_folder",
     picker_roots, raster_folder
   )
-
+  
+  handle_file_picker(
+    input, session, "picker_notes_file", "notes_file",
+    picker_roots, "txt", notes_path
+  )
   handle_file_picker(
     input, session, "picker_daily_file", "daily_file",
     picker_roots, "txt", daily_path
@@ -271,11 +274,11 @@ shinyServer(function(input, output, session) {
   )
   handle_file_picker(
     input, session, "picker_grid_center_file",
-    "grid_center_file", picker_roots, "shp", grid_center_line_path
+    "grid_center_file", picker_roots, c(c("shp", "kml"), "prj"), grid_center_line_path
   )
   handle_file_picker(
     input, session, "picker_grid_top_file", "grid_top_file",
-    picker_roots, "shp", grid_top_marker_path
+    picker_roots, c("shp", "kml"), grid_top_marker_path
   )
   handle_file_picker(
     input, session, "picker_interaction_file", "interaction_file",
@@ -295,11 +298,11 @@ shinyServer(function(input, output, session) {
   )
   handle_file_picker(
     input, session, "picker_predator_file", "predator_file",
-    picker_roots, "txt", predator_path
+    picker_roots, "csv", predator_path
   )
   handle_file_picker(
     input, session, "picker_aoi_file", "aoi_file", picker_roots,
-    "shp", aoi_path
+    c("shp", "kml"), aoi_path
   )
   handle_file_picker(
     input, session, "picker_wild_file", "wild_file", picker_roots,
@@ -330,6 +333,9 @@ shinyServer(function(input, output, session) {
       progress$set(value = 0.1, detail = "Initializaing Configuration")
       # Initialize fhast variables to the inputs in the UI.
       initialize_fhast(input$config_file)
+      
+      # make output locations 
+      source(here("scripts","main","make_output_folder.R"))
       
       progress$set(value = 0.05, detail = "Converting Parameters")
       source(here("scripts","format_parameters","load_convert_parameters.R"))
@@ -373,8 +379,8 @@ shinyServer(function(input, output, session) {
       stopError <<- FALSE
   
       progress$set(value = 0.02, detail = "Converting Parameters")
-      source(here("scripts","format_parameters","load_convert_parameters.R"))
-      progress$set(value = 0.05, detail = "Paramaterizing NetLogo Model")
+      #source(here("scripts","format_parameters","load_convert_parameters.R"))
+      progress$set(value = 0.05, detail = "Parameterizing NetLogo Model")
       # Run the model
       tryCatch({source(here("scripts", "main", "run_model.R"))},
                error = function(e) {
@@ -701,11 +707,25 @@ load_tab_file <- function(file_path, session, tab_data) {
 handle_absolute_file_picker <- function(input, session, picker_name,
                                         txt_box_name, picker_roots, file_type,
                                         default) {
+  default_root = picker_roots[0]
+  default_path = default
+  
+  if (!is.na(default) && nzchar(default)) {
+    for (index in 1:length(picker_roots)) {
+      if (startsWith(default, unname(picker_roots)[index])) {
+        default_root = names(picker_roots)[index]
+        default_path = str_remove(default, unname(picker_roots)[index])
+      }
+    }
+  }
+  
   updateTextInput(session, txt_box_name, value = default)
   observe({
     shinyFileChoose(input, picker_name,
                     roots = picker_roots,
-                    filetypes = c(file_type)
+                    filetypes = c(file_type),
+                    defaultPath=default_path,
+                    defaultRoot=default_root
     )
     selected_file <- parseFilePaths(picker_roots, input[[picker_name]])
     if (length(selected_file$datapath) > 0) {
@@ -718,12 +738,27 @@ handle_absolute_file_picker <- function(input, session, picker_name,
 
 handle_file_picker <- function(input, session, picker_name, txt_box_name,
                                picker_roots, file_type, default) {
-  rel_path <- make_fhast_relative_path(default)
-  updateTextInput(session, txt_box_name, value = rel_path)
+  abs_path <- get_path(fhast_base_folder, default)
+  
+  default_root = picker_roots[0]
+  default_path = abs_path
+
+  if (!is.na(abs_path) && nzchar(abs_path)) {
+    for (index in 1:length(picker_roots)) {
+      if (startsWith(abs_path, unname(picker_roots)[index])) {
+        default_root = names(picker_roots)[index]
+        default_path = str_remove(abs_path, unname(picker_roots)[index])
+      }
+    }
+  }
+  
+  updateTextInput(session, txt_box_name, value = default)
   observe({
     shinyFileChoose(input, picker_name,
       roots = picker_roots,
-      filetypes = c(file_type)
+      filetypes = c(file_type),
+      defaultPath=default_path,
+      defaultRoot=default_root
     )
     selected_file <- parseFilePaths(picker_roots, input[[picker_name]])
     if (length(selected_file$datapath) > 0) {
@@ -738,7 +773,8 @@ handle_absolute_folder_picker <- function(input, session, picker_name,
                                           default) {
   updateTextInput(session, text_box_name, value = default)
   observe({
-    shinyDirChoose(input, picker_name, roots = picker_roots)
+    shinyDirChoose(input, picker_name,
+                   roots = picker_roots)
     selected_dir <- parseDirPath(picker_roots, input[[picker_name]])
     if (length(selected_dir) > 0) {
       updateTextInput(session, text_box_name, value = selected_dir)
@@ -748,10 +784,16 @@ handle_absolute_folder_picker <- function(input, session, picker_name,
 
 handle_folder_picker <- function(input, session, picker_name, text_box_name,
                                  picker_roots, default) {
-  rel_path <- make_fhast_relative_path(default)
-  updateTextInput(session, text_box_name, value = rel_path)
+  # It would good to have this open the folder picker to the currently selected
+  # directory, however it seems there are several bugs currently in
+  # shinyDirChoose that make that a worse option right now:
+  # https://github.com/thomasp85/shinyFiles/issues/175
+  # https://github.com/thomasp85/shinyFiles/issues/110
+  abs_path <- get_path(fhast_base_folder, default)
+  updateTextInput(session, text_box_name, value = abs_path)
   observe({
-    shinyDirChoose(input, picker_name, roots = picker_roots)
+    shinyDirChoose(input, picker_name,
+                   roots = picker_roots)
     selected_dir <- parseDirPath(picker_roots, input[[picker_name]])
     if (length(selected_dir) > 0) {
       rel_path <- make_fhast_relative_path(selected_dir)
@@ -762,6 +804,7 @@ handle_folder_picker <- function(input, session, picker_name, text_box_name,
 
 do_save <- function(input) {
   save_config(input)
+  writeLines(input$sim_ui_notes, notes_path)
   if (has_rendered_interactions) {
     save_tab_file(input, interactions_params, input$interaction_file)
   }
@@ -778,8 +821,8 @@ do_save <- function(input) {
 
 save_config <- function(input) {
   write_config_file(
-    input$config_file, input$run_name, input$fish_pop_file, input$daily_file,
-    input$fish_params_file, input$grid_center_file,
+    input$config_file, input$run_name, input$notes_file, input$fish_pop_file,
+    input$daily_file, input$fish_params_file, input$grid_center_file,
     input$grid_top_file, input$cover_file, input$canopy_cover_file,
     input$tree_growth_file, input$hab_params_file, input$interaction_file,
     input$predator_file, input$raster_folder, input$aoi_file, input$wild_file
@@ -796,6 +839,12 @@ load_config <- function(config_file, session) {
     updateTextInput(session, "run_name", value = run_name)
     updateTextInput(session, "raster_folder",
       value = make_fhast_relative_path(raster_folder)
+    )
+    updateTextInput(session, "notes_file",
+                    value = make_fhast_relative_path(notes_path)
+    )
+    updateTextInput(session, "sim_ui_notes",
+                    value = sim_notes
     )
     updateTextInput(session, "daily_file",
       value = make_fhast_relative_path(daily_path)

@@ -1,12 +1,11 @@
 ########################################
-# Run the initalization
+# Run the initialization
 ########################################
 
-# set the main input folders
-input_folder <- file.path(here(), "default_input")
-fhast_config_file <- "input_file.txt"
+##### Set the main input folders
+input_folder <- file.path(here(".."), "example_data")
+fhast_config_file <- "small_dist_chinook.txt"
 temp_folder <- here("temporary")
-
 
 # Make sure temp directories exist
 make_dir_if_missing(here(temp_folder, "file.txt"))

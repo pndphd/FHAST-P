@@ -30,5 +30,5 @@ make_abm_table = function(df){
     mutate(Item = str_replace_all(Item, "_", " "),
            Item = str_replace_all(Item, "pp", "("),
            Item = str_replace_all(Item, "dd", ")"),
-           Value = round(Value,2))
+           Value = round(Value,4))
 }

@@ -71,7 +71,7 @@ calc_pred_count <- function(df, reach_preds) {
     mutate(
       across(
         .cols = ends_with("hab_rating"),
-        .fns = ~ if_else(.x >= 0.5, 1, 0) * .x,
+        .fns = ~ .x,
         .names = "{.col}_pred"
       ),
       across(

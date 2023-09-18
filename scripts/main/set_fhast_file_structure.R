@@ -43,8 +43,14 @@ initialize_fhast <- function(file_path) {
   run_name <<- ifelse(is.na(input_data["run name", ]),
                       str_replace_all(paste0("none_given_", Sys.time()), ":", "-"),
                       input_data["run name", ])
-    
-
+  
+  # Get the path to the notes file
+  notes_path <<- get_path(fhast_base_folder,
+                          input_data["notes file", ])
+  
+  # Get the notes to the notes file
+  sim_notes <<- readLines(notes_path, warn = FALSE)
+  
   # get the name of the input file
   fish_population_path <<- get_path(fhast_base_folder,
                                    input_data["fish population", ])
@@ -91,6 +97,7 @@ initialize_fhast <- function(file_path) {
   } else {
     wild_path <<- NA
   }
+  
 
   # Reset this stuff to be ready for a new run, the random seed in particular
   # should get set every time.
@@ -99,18 +106,18 @@ initialize_fhast <- function(file_path) {
   set.seed(6806665)
 }
 
-write_config_file <- function(file_path, name, fish_pop, daily, fish_params, line,
+write_config_file <- function(file_path, name, notes, fish_pop, daily, fish_params, line,
                             point, cover, canopy, tree_growth, hab_params,
                             interaction_params, predator, raster, aoi, wild) {
   obj <- data.frame(
     names = c(
-      "run name", "fish population", "daily conditions",
+      "run name", "notes file", "fish population", "daily conditions",
       "fish parameters", "grid centerline", "grid top point",
       "cover", "canopy", "tree growth", "habitat parameters", "interaction parameters",
       "predator parameters", "raster folder", "aoi", "wildcard"
     ),
     paths = c(
-      name, fish_pop, daily, fish_params, line, point,
+      name, notes, fish_pop, daily, fish_params, line, point,
       cover, canopy, tree_growth, hab_params, interaction_params, predator,
       raster, aoi, wild
     )

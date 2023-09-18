@@ -6,7 +6,6 @@
 sample_shape_with_grid <- function(grid, shape_file, column_name, output_name) {
   column_name <- enquo(column_name)
   # fix up the grid file
-
   grid <- grid %>%
     select(distance, area, left_or_right, geometry, lat_dist) %>%
     rowid_to_column("ID")
@@ -62,7 +61,8 @@ sample_all_shapes <- function(grid = NULL,
 
   output <- future_pmap(
     .l = list(shape_files, column_name, output_name),
-    .f = ~ sample_shape_with_grid(grid, ...)
+    .f = ~ sample_shape_with_grid(grid, ...),
+    .options = furrr_options(seed = TRUE)
   ) %>%
     # Join the data frames together
     reduce(~ left_join(.x, .y, by = c("ID", "distance", "area", "left_or_right", "geometry", "lat_dist"))) %>%

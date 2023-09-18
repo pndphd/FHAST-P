@@ -1,8 +1,7 @@
 ---
 output:  html_document
 number_sections: true
-title: | 
-  | FHAST Habitat Summary
+title: "FHAST Habitat Summary"
 header-includes:
     - \usepackage{setspace}\singlespacing
     - \usepackage{float}
@@ -99,7 +98,7 @@ knitr::include_graphics(fish_migration_hist)
 ### Run inputs
 The main input file:
 ```{r, echo=FALSE}
-cat(readLines(file.path(input_folder, fhast_config_file)), sep = '\n')
+cat(readLines(file.path(input_path$path)), sep = '\n')
 ```
 ---
 

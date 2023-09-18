@@ -41,6 +41,9 @@ vignettes/*.pdf
 # Any large flow files 
 temporary/
 
+# output
+default_input/
+
 # Output csvs from netlogo
 scripts/NetLogo/IBM_testing/*.csv
 

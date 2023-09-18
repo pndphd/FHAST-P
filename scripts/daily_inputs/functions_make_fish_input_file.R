@@ -56,7 +56,7 @@ plot_fish_timeseries <- function(fish_schedule) {
     theme_classic(base_size = 20) +
     theme(legend.position = "top") +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-    geom_path(size = 1, linetype = "solid") +
+    geom_path(linetype = "solid") +
     scale_color_viridis_d() +
     labs(x = "Date",
          y = "Count",
